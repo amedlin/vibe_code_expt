@@ -1,5 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const levelFileInput = document.getElementById('levelFile');
+const levelStatus = document.getElementById('levelStatus');
 
 canvas.width = 800;
 canvas.height = 600;
@@ -71,6 +73,31 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
+});
+
+// File input handler for loading custom levels
+levelFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const text = event.target.result;
+            game.currentLevel = Level.parse(text);
+            levelStatus.textContent = game.currentLevel.name;
+            game.reset();
+            console.log(`Loaded custom level: ${game.currentLevel.name}`);
+        } catch (error) {
+            console.error('Error parsing level file:', error);
+            levelStatus.textContent = 'Error loading level';
+        }
+    };
+    reader.onerror = () => {
+        console.error('Error reading file');
+        levelStatus.textContent = 'Error reading file';
+    };
+    reader.readAsText(file);
 });
 
 // Main game loop

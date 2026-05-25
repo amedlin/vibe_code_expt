@@ -6,11 +6,33 @@
 
 body {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
     background-color: #222;
     font-family: Arial, sans-serif;
+    gap: 15px;
+}
+
+#controlsContainer {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: #fff;
+}
+
+#controlsContainer label {
+    font-size: 14px;
+}
+
+#levelFile {
+    font-size: 12px;
+}
+
+#levelStatus {
+    font-size: 12px;
+    color: #aaa;
 }
 
 #gameCanvas {
@@ -18,3 +40,4 @@ body {
     background-color: #87ceeb;
     display: block;
 }
+
