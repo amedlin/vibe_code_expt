@@ -48,8 +48,18 @@ const game = {
         }));
 
         // Create platform bodies from current level
-        if (this.currentLevel) {
+        if (this.currentLevel && this.currentLevel.platforms.length > 0) {
             this.platformBodies = this.currentLevel.createBodies(this.physics);
+        } else {
+            // Fallback: create a default ground platform
+            console.warn('No level loaded or level has no platforms, creating default ground');
+            const groundBody = this.physics.addBody(new Body(0, canvas.height - 50, canvas.width, 50, {
+                type: 'platform',
+                collisionGroup: 1,
+                collisionMask: 0xFFFF,
+                userData: { name: 'ground' }
+            }));
+            this.platformBodies.push(groundBody);
         }
     }
 };
