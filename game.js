@@ -37,24 +37,139 @@ class Camera {
     }
 }
 
-// Platform class
-class Platform {
-    constructor(x, y, width, height) {
+// Physics body class
+class Body {
+    constructor(x, y, width, height, options = {}) {
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
+        this.vx = 0;
+        this.vy = 0;
+        this.ax = 0;
+        this.ay = 0;
+        this.mass = options.mass || 1;
+        this.type = options.type || 'dynamic'; // 'static', 'dynamic', 'platform'
+        this.collisionGroup = options.collisionGroup || 0;
+        this.collisionMask = options.collisionMask !== undefined ? options.collisionMask : 0xFFFF;
+        this.isGrounded = false;
+        this.userData = options.userData || {};
     }
 
     update(deltaTime) {
-        // Override in subclasses for moving platforms
+        if (this.type === 'dynamic') {
+            this.vx += this.ax * deltaTime;
+            this.vy += this.ay * deltaTime;
+            this.x += this.vx * deltaTime;
+            this.y += this.vy * deltaTime;
+        }
     }
 
-    render(ctx, camera) {
-        const screen = camera.worldToScreen(this.x, this.y);
-        ctx.fillStyle = '#8b7355';
-        ctx.fillRect(screen.x, screen.y, this.width, this.height);
+    getBounds() {
+        return {
+            left: this.x,
+            right: this.x + this.width,
+            top: this.y,
+            bottom: this.y + this.height
+        };
     }
+}
+
+// Physics engine
+class Physics {
+    constructor(options = {}) {
+        this.bodies = [];
+        this.gravity = options.gravity || [0, 0.6];
+        this.collisions = [];
+    }
+
+    addBody(body) {
+        this.bodies.push(body);
+        return body;
+    }
+
+    removeBody(body) {
+        const idx = this.bodies.indexOf(body);
+        if (idx !== -1) {
+            this.bodies.splice(idx, 1);
+        }
+    }
+
+    update(deltaTime) {
+        // Apply gravity to dynamic bodies
+        for (let body of this.bodies) {
+            if (body.type === 'dynamic') {
+                body.ax = 0;
+                body.ay = this.gravity[1];
+            }
+        }
+
+        // Update all bodies
+        for (let body of this.bodies) {
+            body.update(deltaTime);
+        }
+
+        // Reset grounded state
+        for (let body of this.bodies) {
+            body.isGrounded = false;
+        }
+
+        // Check collisions
+        this.checkCollisions();
+    }
+
+    checkCollisions() {
+        this.collisions = [];
+
+        for (let i = 0; i < this.bodies.length; i++) {
+            for (let j = i + 1; j < this.bodies.length; j++) {
+                const a = this.bodies[i];
+                const b = this.bodies[j];
+
+                // Check collision groups/masks
+                if ((a.collisionMask & (1 << b.collisionGroup)) === 0) continue;
+                if ((b.collisionMask & (1 << a.collisionGroup)) === 0) continue;
+
+                if (this.rectanglesOverlap(a, b)) {
+                    this.collisions.push({ bodyA: a, bodyB: b });
+                    this.resolveCollision(a, b);
+                }
+            }
+        }
+    }
+
+    rectanglesOverlap(a, b) {
+        return a.x < b.x + b.width &&
+               a.x + a.width > b.x &&
+               a.y < b.y + b.height &&
+               a.y + a.height > b.y;
+    }
+
+    resolveCollision(a, b) {
+        // Dynamic body landing on static/platform from above
+        if (a.type === 'dynamic' && (b.type === 'static' || b.type === 'platform')) {
+            if (a.vy >= 0 && a.y + a.height - a.vy <= b.y + 10) {
+                a.y = b.y - a.height;
+                a.vy = 0;
+                a.isGrounded = true;
+            }
+        }
+        // Reverse: static/platform body with dynamic above
+        if (b.type === 'dynamic' && (a.type === 'static' || a.type === 'platform')) {
+            if (b.vy >= 0 && b.y + b.height - b.vy <= a.y + 10) {
+                b.y = a.y - b.height;
+                b.vy = 0;
+                b.isGrounded = true;
+            }
+        }
+    }
+}
+
+// Platform rendering helper
+function renderBody(ctx, camera, body, color = '#8b7355') {
+    const screen = camera.worldToScreen(body.x, body.y);
+    ctx.fillStyle = color;
+    ctx.fillRect(screen.x, screen.y, body.width, body.height);
 }
 
 // Base GameState class
@@ -84,86 +199,74 @@ class GameState {
 class PlayingState extends GameState {
     constructor(game) {
         super(game);
-        this.platforms = game.platforms;
-        this.player = game.player;
     }
 
     update(deltaTime) {
+        const player = this.game.playerBody;
+        const speed = player.userData.speed;
+        const jumpPower = player.userData.jumpPower;
+
         // Horizontal movement
         if (keys['ArrowLeft'] || keys['a']) {
-            this.player.velocityX = -this.player.speed;
+            player.vx = -speed;
         } else if (keys['ArrowRight'] || keys['d']) {
-            this.player.velocityX = this.player.speed;
+            player.vx = speed;
         } else {
-            this.player.velocityX = 0;
+            player.vx = 0;
         }
-
-        this.player.x += this.player.velocityX;
 
         // Keep player in bounds horizontally
-        if (this.player.x < 0) this.player.x = 0;
-        if (this.player.x + this.player.width > canvas.width) this.player.x = canvas.width - this.player.width;
-
-        // Simple gravity
-        const gravity = 0.6;
-        this.player.velocityY += gravity;
-        this.player.y += this.player.velocityY;
-
-        // Platform collision
-        this.player.isGrounded = false;
-        for (let platform of this.platforms) {
-            platform.update(deltaTime);
-            if (checkPlatformCollision(this.player, platform)) {
-                this.player.y = platform.y - this.player.height;
-                this.player.velocityY = 0;
-                this.player.isGrounded = true;
-                break;
-            }
-        }
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
         // Jump
-        if ((keys['ArrowUp'] || keys['w'] || keys[' ']) && this.player.isGrounded) {
-            this.player.velocityY = -this.player.jumpPower;
-            this.player.isGrounded = false;
+        if ((keys['ArrowUp'] || keys['w'] || keys[' ']) && player.isGrounded) {
+            player.vy = -jumpPower;
+            player.isGrounded = false;
         }
+
+        // Update physics
+        this.game.physics.update(deltaTime);
 
         // Check pause
         if (keys['p']) {
-            keys['p'] = false; // Consume key
+            keys['p'] = false;
             this.game.setState(new PausedState(this.game));
         }
 
         // Check game over condition (fall off bottom)
-        if (this.player.y > canvas.height + 100) {
+        if (player.y > canvas.height + 100) {
             this.game.setState(new GameOverState(this.game));
         }
     }
 
     render(ctx, camera) {
+        const player = this.game.playerBody;
+
         // Clear canvas
         ctx.fillStyle = '#87ceeb';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Render platforms
-        for (let platform of this.platforms) {
-            platform.render(ctx, camera);
+        for (let platform of this.game.platformBodies) {
+            renderBody(ctx, camera, platform, '#8b7355');
         }
 
         // Render player
-        const playerScreen = camera.worldToScreen(this.player.x, this.player.y);
+        const playerScreen = camera.worldToScreen(player.x, player.y);
         ctx.fillStyle = '#ff6b6b';
-        ctx.fillRect(playerScreen.x, playerScreen.y, this.player.width, this.player.height);
+        ctx.fillRect(playerScreen.x, playerScreen.y, player.width, player.height);
 
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(playerScreen.x, playerScreen.y, this.player.width, this.player.height);
+        ctx.strokeRect(playerScreen.x, playerScreen.y, player.width, player.height);
 
         // Draw debug info
         ctx.fillStyle = '#000';
         ctx.font = '12px Arial';
-        ctx.fillText(`Pos: ${this.player.x.toFixed(0)}, ${this.player.y.toFixed(0)}`, 10, 20);
-        ctx.fillText(`Velocity: ${this.player.velocityX.toFixed(1)}, ${this.player.velocityY.toFixed(1)}`, 10, 35);
-        ctx.fillText(`Grounded: ${this.player.isGrounded}`, 10, 50);
+        ctx.fillText(`Pos: ${player.x.toFixed(0)}, ${player.y.toFixed(0)}`, 10, 20);
+        ctx.fillText(`Velocity: ${player.vx.toFixed(1)}, ${player.vy.toFixed(1)}`, 10, 35);
+        ctx.fillText(`Grounded: ${player.isGrounded}`, 10, 50);
         ctx.fillText('Press P to pause', 10, 65);
     }
 }
@@ -172,11 +275,6 @@ class PlayingState extends GameState {
 class PausedState extends GameState {
     constructor(game) {
         super(game);
-        this.previousState = null;
-    }
-
-    enter() {
-        this.previousState = new PlayingState(this.game);
     }
 
     update(deltaTime) {
@@ -243,8 +341,9 @@ const game = {
     lastFrameTime: 0,
     camera: new Camera(0, 0, canvas.width, canvas.height),
     currentState: null,
-    player: null,
-    platforms: [],
+    physics: new Physics(),
+    playerBody: null,
+    platformBodies: [],
 
     setState(newState) {
         if (this.currentState) {
@@ -255,29 +354,36 @@ const game = {
     },
 
     reset() {
-        this.player = {
-            x: 100,
-            y: 300,
-            width: 30,
-            height: 40,
-            velocityY: 0,
-            velocityX: 0,
-            speed: 5,
-            jumpPower: 12,
-            isGrounded: false
-        };
+        this.physics.bodies = [];
+        this.platformBodies = [];
+
+        // Create player body
+        this.playerBody = this.physics.addBody(new Body(100, 300, 30, 40, {
+            type: 'dynamic',
+            mass: 1,
+            collisionGroup: 0,
+            collisionMask: 0xFFFF,
+            userData: {
+                speed: 5,
+                jumpPower: 12
+            }
+        }));
+
+        // Create platform bodies
+        const groundBody = this.physics.addBody(new Body(0, canvas.height - 50, canvas.width, 50, {
+            type: 'platform',
+            collisionGroup: 1,
+            collisionMask: 0xFFFF,
+            userData: { name: 'ground' }
+        }));
+        this.platformBodies.push(groundBody);
     }
 };
 
 // Input state
 const keys = {};
 
-// Initialize game platforms
-game.platforms = [
-    new Platform(0, canvas.height - 50, canvas.width, 50) // Ground
-];
-
-// Initialize player
+// Initialize game
 game.reset();
 
 // Event listeners for keyboard input
@@ -288,15 +394,6 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
 });
-
-// Collision detection utilities
-function checkPlatformCollision(player, platform) {
-    // Only collide if falling from above
-    return player.velocityY >= 0 &&
-           player.y + player.height <= platform.y + 10 &&
-           player.x < platform.x + platform.width &&
-           player.x + player.width > platform.x;
-}
 
 // Main game loop
 function gameLoop(currentTime) {
