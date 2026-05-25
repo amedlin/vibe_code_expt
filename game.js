@@ -17,6 +17,7 @@ const game = {
     physics: new Physics(),
     playerBody: null,
     platformBodies: [],
+    currentLevel: null,
 
     setState(newState) {
         if (this.currentState) {
@@ -24,6 +25,10 @@ const game = {
         }
         this.currentState = newState;
         this.currentState.enter();
+    },
+
+    async loadLevel(levelFile) {
+        this.currentLevel = await Level.loadFromFile(levelFile);
     },
 
     reset() {
@@ -42,14 +47,10 @@ const game = {
             }
         }));
 
-        // Create platform bodies
-        const groundBody = this.physics.addBody(new Body(0, canvas.height - 50, canvas.width, 50, {
-            type: 'platform',
-            collisionGroup: 1,
-            collisionMask: 0xFFFF,
-            userData: { name: 'ground' }
-        }));
-        this.platformBodies.push(groundBody);
+        // Create platform bodies from current level
+        if (this.currentLevel) {
+            this.platformBodies = this.currentLevel.createBodies(this.physics);
+        }
     }
 };
 
@@ -61,9 +62,6 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
 });
-
-// Initialize game
-game.reset();
 
 // Main game loop
 function gameLoop(currentTime) {
@@ -78,6 +76,12 @@ function gameLoop(currentTime) {
     requestAnimationFrame(gameLoop);
 }
 
-// Start the game
-game.setState(new PlayingState(game));
-requestAnimationFrame(gameLoop);
+// Initialize and start the game
+async function startGame() {
+    await game.loadLevel('levels.txt');
+    game.reset();
+    game.setState(new PlayingState(game));
+    requestAnimationFrame(gameLoop);
+}
+
+startGame();
