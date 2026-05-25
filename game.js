@@ -52,16 +52,6 @@ const game = {
         // Create platform bodies from current level
         if (this.currentLevel && this.currentLevel.platforms.length > 0) {
             this.platformBodies = this.currentLevel.createBodies(this.physics);
-        } else {
-            // Fallback: create a default ground platform
-            console.warn('No level loaded or level has no platforms, creating default ground');
-            const groundBody = this.physics.addBody(new Body(0, canvas.height - 50, canvas.width, 50, {
-                type: 'platform',
-                collisionGroup: 1,
-                collisionMask: 0xFFFF,
-                userData: { name: 'ground' }
-            }));
-            this.platformBodies.push(groundBody);
         }
     }
 };
@@ -75,11 +65,8 @@ window.addEventListener('keyup', (e) => {
     keys[e.key] = false;
 });
 
-// File input handler for loading custom levels
-levelFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
+// File input handler for loading levels
+function loadLevelFromFile(file) {
     const reader = new FileReader();
     reader.onload = (event) => {
         try {
@@ -87,7 +74,8 @@ levelFileInput.addEventListener('change', (e) => {
             game.currentLevel = Level.parse(text);
             levelStatus.textContent = game.currentLevel.name;
             game.reset();
-            console.log(`Loaded custom level: ${game.currentLevel.name}`);
+            game.setState(new PlayingState(game));
+            console.log(`Loaded level: ${game.currentLevel.name}`);
         } catch (error) {
             console.error('Error parsing level file:', error);
             levelStatus.textContent = 'Error loading level';
@@ -98,6 +86,13 @@ levelFileInput.addEventListener('change', (e) => {
         levelStatus.textContent = 'Error reading file';
     };
     reader.readAsText(file);
+}
+
+levelFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        loadLevelFromFile(file);
+    }
 });
 
 // Main game loop
@@ -115,9 +110,7 @@ function gameLoop(currentTime) {
 
 // Initialize and start the game
 async function startGame() {
-    await game.loadLevel('levels.txt');
-    game.reset();
-    game.setState(new PlayingState(game));
+    game.setState(new LevelSelectState(game));
     requestAnimationFrame(gameLoop);
 }
 

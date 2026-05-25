@@ -21,6 +21,33 @@ class GameState {
     }
 }
 
+// Level Select state - waits for user to select a level file
+class LevelSelectState extends GameState {
+    constructor(game) {
+        super(game);
+    }
+
+    update(deltaTime) {
+        // No updates needed, just waiting for file input
+    }
+
+    render(ctx, camera) {
+        // Clear canvas to blue
+        ctx.fillStyle = '#87ceeb';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw message
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Select a level file to begin', canvas.width / 2, canvas.height / 2 - 40);
+
+        ctx.font = '16px Arial';
+        ctx.fillText('Use the file input above', canvas.width / 2, canvas.height / 2 + 20);
+        ctx.textAlign = 'left';
+    }
+}
+
 // Playing state
 class PlayingState extends GameState {
     constructor(game) {
