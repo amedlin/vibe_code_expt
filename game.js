@@ -37,8 +37,8 @@ const game = {
             collisionGroup: 0,
             collisionMask: 0xFFFF,
             userData: {
-                speed: 5,
-                jumpPower: 12
+                speed: 300,
+                jumpPower: 700
             }
         }));
 

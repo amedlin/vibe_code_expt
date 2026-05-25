@@ -40,7 +40,7 @@ class Body {
 class Physics {
     constructor(options = {}) {
         this.bodies = [];
-        this.gravity = options.gravity || [0, 0.6];
+        this.gravity = options.gravity || [0, 2000];
         this.collisions = [];
     }
 
