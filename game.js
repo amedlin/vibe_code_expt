@@ -59,6 +59,11 @@ const game = {
 // Event listeners for keyboard input
 window.addEventListener('keydown', (e) => {
     keys[e.key] = true;
+
+    // Prevent spacebar from scrolling the page
+    if (e.key === ' ') {
+        e.preventDefault();
+    }
 });
 
 window.addEventListener('keyup', (e) => {
