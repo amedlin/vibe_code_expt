@@ -81,7 +81,9 @@ class PlayingState extends GameState {
 
     update(deltaTime) {
         const player = this.game.playerBody;
-        const animator = player.userData.animator;
+        const playerEntity = this.game.playerEntity;
+        const animatedRender = playerEntity.getComponent('AnimatedRender');
+        const animator = animatedRender.animator;
         const speed = player.userData.speed;
         const jumpPower = player.userData.jumpPower;
 
@@ -107,8 +109,10 @@ class PlayingState extends GameState {
         // Update physics
         this.game.physics.update(deltaTime);
 
-        // Update animator
-        animator.update(deltaTime);
+        // Sync entity transform with physics body
+        const transform = playerEntity.getComponent('Transform');
+        transform.x = player.x;
+        transform.y = player.y;
 
         // Select animation based on movement state
         let newAnimation = PLAYER_ANIMATIONS.idle;
@@ -137,20 +141,13 @@ class PlayingState extends GameState {
 
     render(ctx, camera) {
         const player = this.game.playerBody;
-        const animator = player.userData.animator;
 
         // Clear canvas
         ctx.fillStyle = '#87ceeb';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Render platforms
-        for (let platform of this.game.platformBodies) {
-            renderBody(ctx, camera, platform, '#8b7355');
-        }
-
-        // Render animated player
-        const playerScreen = camera.worldToScreen(player.x, player.y);
-        animator.render(ctx, playerScreen.x, playerScreen.y, player.width, player.height);
+        // Render all entities via RenderSystem
+        this.game.renderSystem.update(this.game.deltaTime, this.game.ecs.entities, ctx);
 
         // Draw debug info
         ctx.fillStyle = '#000';

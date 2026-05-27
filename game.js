@@ -20,6 +20,8 @@ const game = {
     playerBody: null,
     platformBodies: [],
     currentLevel: null,
+    ecs: new ECS(),
+    renderSystem: null,
 
     setState(newState) {
         if (this.currentState) {
@@ -36,6 +38,7 @@ const game = {
     reset() {
         this.physics.bodies = [];
         this.platformBodies = [];
+        this.ecs.clear();
 
         // Create player body
         this.playerBody = this.physics.addBody(new Body(100, 300, 30, 40, {
@@ -45,14 +48,31 @@ const game = {
             collisionMask: 0xFFFF,
             userData: {
                 speed: 300,
-                jumpPower: 700,
-                animator: new Animator(PLAYER_ANIMATIONS.idle)
+                jumpPower: 700
             }
         }));
 
-        // Create platform bodies from current level
+        // Create player entity for rendering
+        const playerEntity = this.ecs.createEntity();
+        playerEntity.addComponent('Transform', new TransformComponent(this.playerBody.x, this.playerBody.y, this.playerBody.width, this.playerBody.height));
+        playerEntity.addComponent('AnimatedRender', new AnimatedRenderComponent(new Animator(PLAYER_ANIMATIONS.idle)));
+        playerEntity.addComponent('Physics', new PhysicsComponent(this.playerBody));
+        this.playerEntity = playerEntity;
+
+        // Create platform bodies and entities from current level
         if (this.currentLevel && this.currentLevel.platforms.length > 0) {
             this.platformBodies = this.currentLevel.createBodies(this.physics);
+
+            // Create platform entities for rendering
+            for (let platformBody of this.platformBodies) {
+                const platformEntity = this.ecs.createEntity();
+                platformEntity.addComponent('Transform', new TransformComponent(platformBody.x, platformBody.y, platformBody.width, platformBody.height));
+                platformEntity.addComponent('Render', new RenderComponent((ctx, x, y, w, h) => {
+                    ctx.fillStyle = '#8b7355';
+                    ctx.fillRect(x, y, w, h);
+                }));
+                platformEntity.addComponent('Physics', new PhysicsComponent(platformBody));
+            }
         }
     }
 };
@@ -116,6 +136,7 @@ function gameLoop(currentTime) {
 
 // Initialize and start the game
 async function startGame() {
+    game.renderSystem = new RenderSystem(game.camera);
     game.setState(new LevelSelectState(game));
     requestAnimationFrame(gameLoop);
 }
