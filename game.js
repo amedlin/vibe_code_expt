@@ -45,7 +45,8 @@ const game = {
             collisionMask: 0xFFFF,
             userData: {
                 speed: 300,
-                jumpPower: 700
+                jumpPower: 700,
+                animator: new Animator(PLAYER_ANIMATIONS.idle)
             }
         }));
 

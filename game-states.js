@@ -1,3 +1,28 @@
+// Player animation definitions
+const PLAYER_ANIMATIONS = {
+    idle: new Animation('idle', [
+        new SpriteFrame(200, createColoredFrame(['#ff6b6b']))
+    ], true),
+
+    runningLeft: new Animation('runningLeft', [
+        new SpriteFrame(100, createColoredFrame(['#ff6b6b'])),
+        new SpriteFrame(100, createColoredFrame(['#ff5252']))
+    ], true),
+
+    runningRight: new Animation('runningRight', [
+        new SpriteFrame(100, createColoredFrame(['#ff6b6b'])),
+        new SpriteFrame(100, createColoredFrame(['#ff5252']))
+    ], true),
+
+    jumping: new Animation('jumping', [
+        new SpriteFrame(200, createColoredFrame(['#ffa500']))
+    ], true),
+
+    falling: new Animation('falling', [
+        new SpriteFrame(200, createColoredFrame(['#ff8c00']))
+    ], true)
+};
+
 // Base GameState class
 class GameState {
     constructor(game) {
@@ -56,6 +81,7 @@ class PlayingState extends GameState {
 
     update(deltaTime) {
         const player = this.game.playerBody;
+        const animator = player.userData.animator;
         const speed = player.userData.speed;
         const jumpPower = player.userData.jumpPower;
 
@@ -81,6 +107,22 @@ class PlayingState extends GameState {
         // Update physics
         this.game.physics.update(deltaTime);
 
+        // Update animator
+        animator.update(deltaTime);
+
+        // Select animation based on movement state
+        let newAnimation = PLAYER_ANIMATIONS.idle;
+        if (!player.isGrounded) {
+            newAnimation = player.vy < 0 ? PLAYER_ANIMATIONS.jumping : PLAYER_ANIMATIONS.falling;
+        } else if (player.vx !== 0) {
+            newAnimation = player.vx < 0 ? PLAYER_ANIMATIONS.runningLeft : PLAYER_ANIMATIONS.runningRight;
+        }
+
+        // Play animation if different
+        if (animator.currentAnimation !== newAnimation) {
+            animator.play(newAnimation);
+        }
+
         // Check pause
         if (keys['p']) {
             keys['p'] = false;
@@ -95,6 +137,7 @@ class PlayingState extends GameState {
 
     render(ctx, camera) {
         const player = this.game.playerBody;
+        const animator = player.userData.animator;
 
         // Clear canvas
         ctx.fillStyle = '#87ceeb';
@@ -105,14 +148,9 @@ class PlayingState extends GameState {
             renderBody(ctx, camera, platform, '#8b7355');
         }
 
-        // Render player
+        // Render animated player
         const playerScreen = camera.worldToScreen(player.x, player.y);
-        ctx.fillStyle = '#ff6b6b';
-        ctx.fillRect(playerScreen.x, playerScreen.y, player.width, player.height);
-
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(playerScreen.x, playerScreen.y, player.width, player.height);
+        animator.render(ctx, playerScreen.x, playerScreen.y, player.width, player.height);
 
         // Draw debug info
         ctx.fillStyle = '#000';
