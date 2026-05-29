@@ -12,12 +12,7 @@ class MovementSystem extends System {
             const tracker = entity.getComponent('VelocityTracker');
 
             if (physics.isGrounded) {
-                let targetVx = 0;
-                if (input.moveLeft) {
-                    targetVx = -movement.speed;
-                } else if (input.moveRight) {
-                    targetVx = movement.speed;
-                }
+                const targetVx = this.getTargetVx(input, movement.speed);
 
                 if (input.moveLeft && physics.vx > 0) {
                     physics.vx = 0;
@@ -31,6 +26,15 @@ class MovementSystem extends System {
                     movement.groundAcceleration,
                     deltaTime
                 );
+            } else {
+                const targetVx = this.getTargetVx(input, movement.airMaxSpeed);
+
+                physics.vx = this.accelerateToward(
+                    physics.vx,
+                    targetVx,
+                    movement.airAcceleration,
+                    deltaTime
+                );
             }
 
             if (input.jump && physics.isGrounded) {
@@ -41,6 +45,16 @@ class MovementSystem extends System {
             tracker.lastVx = physics.vx;
             tracker.isMoving = physics.isGrounded && physics.vx !== 0;
         }
+    }
+
+    getTargetVx(input, maxSpeed) {
+        if (input.moveLeft) {
+            return -maxSpeed;
+        }
+        if (input.moveRight) {
+            return maxSpeed;
+        }
+        return 0;
     }
 
     accelerateToward(current, target, acceleration, deltaTime) {
