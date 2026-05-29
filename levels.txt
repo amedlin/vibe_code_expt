@@ -1,4 +1,4 @@
-# Level 1 - Platformer Challenge
+# Level Alpha
 # Platform: x, y, width, height
 # Tangram: piece_id, x, y
 # Ground platform

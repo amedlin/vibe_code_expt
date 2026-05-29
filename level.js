@@ -17,7 +17,10 @@ class Level {
 
             if (!line || line.startsWith('#')) {
                 if (line.startsWith('# Level')) {
-                    levelName = line.substring(1).trim();
+                    const raw = line.replace(/^#\s*Level\s*[-:]?\s*/i, '').trim();
+                    if (raw) {
+                        levelName = raw;
+                    }
                 }
                 continue;
             }

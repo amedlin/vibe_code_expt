@@ -8,11 +8,13 @@
 </head>
 <body>
     <div id="controlsContainer">
-        <label for="levelFile">Load Level:</label>
-        <input type="file" id="levelFile" accept=".txt" autofocus />
+        <label for="levelFile" class="file-input-label">Load level
+            <input type="file" id="levelFile" accept=".txt" autofocus />
+        </label>
         <button type="button" id="restartLevel" disabled>Restart level</button>
-        <span id="levelStatus">Select levels.txt to start</span>
+        <span id="levelStatus">Select a level file to start</span>
     </div>
+    <h1 id="levelHeading" class="level-heading is-hidden" aria-hidden="true"></h1>
     <canvas id="gameCanvas"></canvas>
     <!-- Core ECS and utilities -->
     <script src="ecs.js"></script>

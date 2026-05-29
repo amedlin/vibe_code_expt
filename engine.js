@@ -7,6 +7,7 @@ class GameEngine {
         const levelFileInput = document.getElementById(options.levelFileInputId ?? 'levelFile');
         const restartLevelButton = document.getElementById(options.restartLevelButtonId ?? 'restartLevel');
         const levelStatus = document.getElementById(options.levelStatusId ?? 'levelStatus');
+        const levelHeading = document.getElementById(options.levelHeadingId ?? 'levelHeading');
 
         const width = options.width ?? 800;
         const height = options.height ?? 600;
@@ -19,7 +20,8 @@ class GameEngine {
             height,
             levelFileInput,
             restartLevelButton,
-            levelStatus
+            levelStatus,
+            levelHeading
         });
     }
 
@@ -31,8 +33,10 @@ class GameEngine {
         this.levelFileInput = options.levelFileInput ?? null;
         this.restartLevelButton = options.restartLevelButton ?? null;
         this.levelStatus = options.levelStatus ?? null;
-        this.defaultLevelStatusText = options.defaultLevelStatusText ?? 'Select levels.txt to start';
+        this.levelHeading = options.levelHeading ?? null;
+        this.defaultLevelStatusText = options.defaultLevelStatusText ?? 'Select a level file to start';
         this.lastLevelFile = null;
+        this.currentLevelName = null;
 
         this.inputBuffer = new InputBuffer();
         this.lastFrameTime = 0;
@@ -75,7 +79,9 @@ class GameEngine {
         this.ecs.clearEntities();
         this.inputBuffer.keys = {};
         this.lastLevelFile = null;
+        this.currentLevelName = null;
         this.updateRestartButton();
+        this.setLevelHeading(null);
         if (this.levelStatus) {
             this.levelStatus.textContent = this.defaultLevelStatusText;
         }
@@ -273,7 +279,9 @@ class GameEngine {
     }
 
     onLevelLoaded(levelData) {
-        this.setLevelStatus(levelData.name);
+        this.currentLevelName = levelData.name;
+        this.setLevelHeading(levelData.name);
+        this.setLevelStatus('');
         console.log(`Loaded level: ${levelData.name}`);
         this.enterPlaying();
     }
@@ -281,6 +289,20 @@ class GameEngine {
     setLevelStatus(text) {
         if (this.levelStatus) {
             this.levelStatus.textContent = text;
+        }
+    }
+
+    setLevelHeading(name) {
+        if (!this.levelHeading) return;
+
+        if (name) {
+            this.levelHeading.textContent = name;
+            this.levelHeading.classList.remove('is-hidden');
+            this.levelHeading.removeAttribute('aria-hidden');
+        } else {
+            this.levelHeading.textContent = '';
+            this.levelHeading.classList.add('is-hidden');
+            this.levelHeading.setAttribute('aria-hidden', 'true');
         }
     }
 }
