@@ -1,4 +1,7 @@
 class GameEngine {
+    // Cap dt so a backgrounded tab cannot apply seconds of physics in one frame
+    static MAX_DELTA_TIME = 0.1;
+
     static fromDOM(options = {}) {
         const canvas = document.getElementById(options.canvasId ?? 'gameCanvas');
         const levelFileInput = document.getElementById(options.levelFileInputId ?? 'levelFile');
@@ -106,10 +109,28 @@ class GameEngine {
     attachListeners() {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
         window.addEventListener('keyup', (e) => this.onKeyUp(e));
+        window.addEventListener('blur', () => this.onAppHidden());
+        window.addEventListener('focus', () => this.resetFrameClock());
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.onAppHidden();
+            } else {
+                this.resetFrameClock();
+            }
+        });
 
         if (this.levelFileInput) {
             this.levelFileInput.addEventListener('change', (e) => this.onLevelFileSelected(e));
         }
+    }
+
+    onAppHidden() {
+        this.inputBuffer.keys = {};
+        this.resetFrameClock();
+    }
+
+    resetFrameClock() {
+        this.lastFrameTime = 0;
     }
 
     onLevelFileSelected(event) {
@@ -144,8 +165,15 @@ class GameEngine {
     }
 
     tick(currentTime) {
-        const deltaTime = (currentTime - this.lastFrameTime) / 1000;
+        if (this.lastFrameTime === 0) {
+            this.lastFrameTime = currentTime;
+            requestAnimationFrame(this._loopBound);
+            return;
+        }
+
+        const rawDelta = (currentTime - this.lastFrameTime) / 1000;
         this.lastFrameTime = currentTime;
+        const deltaTime = Math.min(rawDelta, GameEngine.MAX_DELTA_TIME);
 
         const config = this.stateManager.getConfig();
 
