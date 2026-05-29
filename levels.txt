@@ -1,6 +1,7 @@
 # Level Alpha
 # Platform: x, y, width, height
 # Tangram: piece_id, x, y
+# Decoration: grass | tree | shrub, x, optional_y_hint
 # Ground platform
 0, 550, 800, 50
 # Lower platforms
@@ -19,3 +20,17 @@ small_tri_1, 350, 210
 small_tri_2, 570, 110
 square, 175, 110
 parallelogram, 400, 515
+# Set dressing (snaps to platform below x; y hint picks among stacked surfaces)
+grass, 40
+grass, 200, 450
+shrub, 115, 350
+tree, 85, 530
+tree, 700, 530
+shrub, 265, 450
+grass, 480, 350
+tree, 520, 350
+shrub, 330, 250
+grass, 600, 250
+tree, 165, 150
+shrub, 565, 150
+grass, 350, 530

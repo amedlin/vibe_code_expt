@@ -56,6 +56,41 @@ class LevelManager {
                 this.createTangramPiece(pieceDef);
             }
         }
+
+        if (levelData.decorations && levelData.decorations.length > 0) {
+            for (let decorDef of levelData.decorations) {
+                this.createDecoration(decorDef, levelData.platforms);
+            }
+        }
+    }
+
+    createDecoration(decorDef, platforms) {
+        const sprite = getDecorationSprite(decorDef.type);
+        if (!sprite) {
+            console.warn('Unknown decoration type:', decorDef.type);
+            return;
+        }
+
+        const surfaceY = findDecorationSurfaceY(
+            platforms,
+            decorDef.x,
+            sprite.width,
+            decorDef.yHint
+        );
+        if (surfaceY === null) {
+            console.warn('No platform surface for decoration at x:', decorDef.x);
+            return;
+        }
+
+        const depthLayer = Math.random() < 0.5 ? 'back' : 'front';
+        const entity = this.engine.ecs.createEntity();
+        entity.addComponent('Transform', new TransformComponent(
+            decorDef.x,
+            surfaceY - sprite.height,
+            sprite.width,
+            sprite.height
+        ));
+        entity.addComponent('Decoration', new DecorationComponent(decorDef.type, depthLayer));
     }
 
     createTangramPiece(pieceDef) {

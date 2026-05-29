@@ -64,8 +64,10 @@ class GameEngine {
         this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
 
         this.ecs.addRenderSystem(new RenderSystem(this.camera));
+        this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'back'));
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
+        this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front'));
         this.ecs.addRenderSystem(new InventoryRenderSystem(
             () => this.ecs.playerEntity,
             this.canvasWidth,

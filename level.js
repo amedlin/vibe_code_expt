@@ -1,15 +1,17 @@
 // Level class for managing level data and platform definitions
 class Level {
-    constructor(name, platforms = [], tangramPieces = []) {
+    constructor(name, platforms = [], tangramPieces = [], decorations = []) {
         this.name = name;
         this.platforms = platforms;
         this.tangramPieces = tangramPieces;
+        this.decorations = decorations;
     }
 
     static parse(text) {
         const lines = text.split('\n');
         const platforms = [];
         const tangramPieces = [];
+        const decorations = [];
         let levelName = 'Unnamed Level';
 
         for (let line of lines) {
@@ -26,6 +28,19 @@ class Level {
             }
 
             const parts = line.split(',').map((p) => p.trim());
+
+            if (parts.length >= 2 && isDecorationType(parts[0])) {
+                const x = parseFloat(parts[1]);
+                const yHint = parts.length >= 3 ? parseFloat(parts[2]) : null;
+                if (!isNaN(x)) {
+                    decorations.push({
+                        type: parts[0],
+                        x,
+                        yHint: parts.length >= 3 && !isNaN(yHint) ? yHint : null
+                    });
+                }
+                continue;
+            }
 
             if (parts.length === 3 && isTangramPieceId(parts[0])) {
                 const x = parseFloat(parts[1]);
@@ -49,6 +64,6 @@ class Level {
             }
         }
 
-        return new Level(levelName, platforms, tangramPieces);
+        return new Level(levelName, platforms, tangramPieces, decorations);
     }
 }
