@@ -5,6 +5,7 @@ class GameEngine {
     static fromDOM(options = {}) {
         const canvas = document.getElementById(options.canvasId ?? 'gameCanvas');
         const levelFileInput = document.getElementById(options.levelFileInputId ?? 'levelFile');
+        const restartLevelButton = document.getElementById(options.restartLevelButtonId ?? 'restartLevel');
         const levelStatus = document.getElementById(options.levelStatusId ?? 'levelStatus');
 
         const width = options.width ?? 800;
@@ -17,6 +18,7 @@ class GameEngine {
             width,
             height,
             levelFileInput,
+            restartLevelButton,
             levelStatus
         });
     }
@@ -27,8 +29,10 @@ class GameEngine {
         this.canvasWidth = options.width ?? 800;
         this.canvasHeight = options.height ?? 600;
         this.levelFileInput = options.levelFileInput ?? null;
+        this.restartLevelButton = options.restartLevelButton ?? null;
         this.levelStatus = options.levelStatus ?? null;
         this.defaultLevelStatusText = options.defaultLevelStatusText ?? 'Select levels.txt to start';
+        this.lastLevelFile = null;
 
         this.inputBuffer = new InputBuffer();
         this.lastFrameTime = 0;
@@ -70,6 +74,8 @@ class GameEngine {
     enterLevelSelect() {
         this.ecs.clearEntities();
         this.inputBuffer.keys = {};
+        this.lastLevelFile = null;
+        this.updateRestartButton();
         if (this.levelStatus) {
             this.levelStatus.textContent = this.defaultLevelStatusText;
         }
@@ -131,6 +137,16 @@ class GameEngine {
 
         if (this.levelFileInput) {
             this.levelFileInput.addEventListener('change', (e) => this.onLevelFileSelected(e));
+        }
+
+        if (this.restartLevelButton) {
+            this.restartLevelButton.addEventListener('click', () => this.restartCurrentLevel());
+        }
+    }
+
+    updateRestartButton() {
+        if (this.restartLevelButton) {
+            this.restartLevelButton.disabled = !this.lastLevelFile;
         }
     }
 
@@ -236,8 +252,22 @@ class GameEngine {
             });
     }
 
+    restartCurrentLevel() {
+        if (!this.lastLevelFile) {
+            return Promise.resolve();
+        }
+        this.inputBuffer.keys = {};
+        return this.loadLevelFromFile(this.lastLevelFile);
+    }
+
     async loadLevel(levelFile) {
         const levelData = await this.levelManager.loadLevel(levelFile);
+        this.lastLevelFile = levelFile;
+        this.updateRestartButton();
+        // Clear so picking the same file again still fires `change`
+        if (this.levelFileInput) {
+            this.levelFileInput.value = '';
+        }
         this.onLevelLoaded(levelData);
         return levelData;
     }
