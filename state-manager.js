@@ -1,19 +1,24 @@
 class StateManager {
     constructor() {
         this.currentState = 'levelSelect';
-        this.onStateChange = null;
     }
 
     setState(newState) {
-        if (this.currentState !== newState) {
-            this.currentState = newState;
-            if (this.onStateChange) {
-                this.onStateChange(newState);
-            }
+        if (!GAME_STATES[newState]) {
+            throw new Error(`Unknown game state: ${newState}`);
         }
+        this.currentState = newState;
     }
 
     getState() {
         return this.currentState;
+    }
+
+    is(state) {
+        return this.currentState === state;
+    }
+
+    getConfig() {
+        return GAME_STATES[this.currentState];
     }
 }

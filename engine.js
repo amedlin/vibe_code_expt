@@ -6,15 +6,13 @@ class GameEngine {
         this.canvasHeight = options.height ?? 600;
         this.levelFileInput = options.levelFileInput ?? null;
         this.levelStatus = options.levelStatus ?? null;
+        this.defaultLevelStatusText = 'Select levels.txt to start';
 
         this.inputBuffer = new InputBuffer();
         this.lastFrameTime = 0;
         this._loopBound = (time) => this.tick(time);
 
-        // Core ECS
         this.ecs = new ECS();
-
-        // Management
         this.stateManager = new StateManager();
         this.levelManager = new LevelManager(this);
         this.camera = new Camera(0, 0, this.canvasWidth, this.canvasHeight);
@@ -23,22 +21,66 @@ class GameEngine {
     }
 
     registerSystems() {
-        // Update order: Input → Movement → Boundary → Physics → Animation → Game over
         this.ecs.addUpdateSystem(new InputSystem(this.inputBuffer));
         this.ecs.addUpdateSystem(new MovementSystem());
         this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
         this.ecs.addUpdateSystem(new PhysicsSystem([0, 2000]));
         this.ecs.addUpdateSystem(new AnimationSystem());
         this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
-        this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.onGameOver()));
+        this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
 
         this.ecs.addRenderSystem(new RenderSystem(this.camera));
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
     }
 
+    // --- State transitions (single entry points) ---
+
+    enterLevelSelect() {
+        this.ecs.clearEntities();
+        this.inputBuffer.keys = {};
+        if (this.levelStatus) {
+            this.levelStatus.textContent = this.defaultLevelStatusText;
+        }
+        this.stateManager.setState('levelSelect');
+    }
+
+    enterPlaying() {
+        this.stateManager.setState('playing');
+    }
+
+    pause() {
+        if (this.stateManager.is('playing')) {
+            this.stateManager.setState('paused');
+        }
+    }
+
+    resume() {
+        if (this.stateManager.is('paused')) {
+            this.stateManager.setState('playing');
+        }
+    }
+
+    enterGameOver() {
+        if (!this.stateManager.is('playing')) {
+            return;
+        }
+        this.stateManager.setState('gameOver');
+    }
+
+    restart() {
+        this.enterLevelSelect();
+        if (this.levelFileInput) {
+            this.levelFileInput.value = '';
+            this.levelFileInput.focus();
+            this.levelFileInput.click();
+        }
+    }
+
+    // --- Lifecycle ---
+
     start() {
         this.attachKeyboardListeners();
-        this.stateManager.setState('levelSelect');
+        this.enterLevelSelect();
         requestAnimationFrame(this._loopBound);
     }
 
@@ -54,15 +96,15 @@ class GameEngine {
             e.preventDefault();
         }
 
-        const state = this.stateManager.currentState;
-
-        if (e.key === 'p' && state === 'playing') {
-            this.stateManager.setState('paused');
-        } else if (e.key === 'p' && state === 'paused') {
-            this.stateManager.setState('playing');
+        if (e.key === 'p') {
+            if (this.stateManager.is('playing')) {
+                this.pause();
+            } else if (this.stateManager.is('paused')) {
+                this.resume();
+            }
         }
 
-        if (e.key === 'r' && state === 'gameOver') {
+        if (e.key === 'r' && this.stateManager.is('gameOver')) {
             this.restart();
         }
     }
@@ -71,94 +113,35 @@ class GameEngine {
         this.inputBuffer.setDown(e.key, false);
     }
 
-    restart() {
-        this.reset();
-        if (this.levelFileInput) {
-            this.levelFileInput.focus();
-            this.levelFileInput.click();
-        }
-    }
-
     tick(currentTime) {
         const deltaTime = (currentTime - this.lastFrameTime) / 1000;
         this.lastFrameTime = currentTime;
 
-        switch (this.stateManager.currentState) {
-            case 'levelSelect':
-                this.renderOverlay();
-                break;
+        const config = this.stateManager.getConfig();
 
-            case 'playing':
-                this.update(deltaTime);
-                this.render();
-                break;
+        if (config.updatesWorld) {
+            this.ecs.update(deltaTime);
+        }
 
-            case 'paused':
-                this.render();
-                this.renderOverlay();
-                break;
+        if (config.rendersWorld) {
+            this.renderWorld(config.showDebugHud);
+        }
 
-            case 'gameOver':
-                this.renderOverlay();
-                break;
+        if (config.overlay) {
+            GAME_STATE_OVERLAYS[config.overlay](this.ctx, this.canvasWidth, this.canvasHeight);
         }
 
         requestAnimationFrame(this._loopBound);
     }
 
-    update(deltaTime) {
-        this.ecs.update(deltaTime);
-    }
-
-    render() {
+    renderWorld(showDebugHud) {
         this.ctx.fillStyle = '#87ceeb';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
         this.ecs.render(this.ctx);
-        this.renderDebugInfo();
-    }
 
-    renderOverlay() {
-        const ctx = this.ctx;
-        const width = this.canvasWidth;
-        const height = this.canvasHeight;
-
-        switch (this.stateManager.currentState) {
-            case 'levelSelect':
-                ctx.fillStyle = '#87ceeb';
-                ctx.fillRect(0, 0, width, height);
-                ctx.fillStyle = '#000';
-                ctx.font = 'bold 32px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('Select a level file to begin', width / 2, height / 2 - 40);
-                ctx.font = '16px Arial';
-                ctx.fillText('Use the file input above', width / 2, height / 2 + 20);
-                ctx.textAlign = 'left';
-                break;
-
-            case 'paused':
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.fillRect(0, 0, width, height);
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 32px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('PAUSED', width / 2, height / 2 - 20);
-                ctx.font = '16px Arial';
-                ctx.fillText('Press P to resume', width / 2, height / 2 + 30);
-                ctx.textAlign = 'left';
-                break;
-
-            case 'gameOver':
-                ctx.fillStyle = '#87ceeb';
-                ctx.fillRect(0, 0, width, height);
-                ctx.fillStyle = '#000';
-                ctx.font = 'bold 48px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('GAME OVER', width / 2, height / 2 - 40);
-                ctx.font = '20px Arial';
-                ctx.fillText('Press R to restart', width / 2, height / 2 + 40);
-                ctx.textAlign = 'left';
-                break;
+        if (showDebugHud) {
+            this.renderDebugInfo();
         }
     }
 
@@ -194,16 +177,7 @@ class GameEngine {
 
     async loadLevel(levelFile) {
         const levelData = await this.levelManager.loadLevel(levelFile);
-        this.stateManager.setState('playing');
+        this.enterPlaying();
         return levelData;
-    }
-
-    reset() {
-        this.ecs.clearEntities();
-        this.stateManager.setState('playing');
-    }
-
-    onGameOver() {
-        this.stateManager.setState('gameOver');
     }
 }
