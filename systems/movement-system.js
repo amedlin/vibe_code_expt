@@ -27,7 +27,8 @@ class MovementSystem extends System {
                     deltaTime
                 );
             } else {
-                const targetVx = this.getTargetVx(input, movement.airMaxSpeed);
+                // Increased air speed only applies when falling downwards
+                const targetVx = physics.vy > 0 ? this.getTargetVx(input, movement.airMaxSpeed) : this.getTargetVx(input, movement.speed);
 
                 physics.vx = this.accelerateToward(
                     physics.vx,

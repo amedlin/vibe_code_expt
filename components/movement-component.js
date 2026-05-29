@@ -3,8 +3,8 @@ class MovementComponent {
         this.speed = speed;
         this.jumpPower = jumpPower;
         this.groundAccelTime = groundAccelTime;
-        this.airSpeedMultiplier = 10;
-        this.airAccelFactor = 0.1;
+        this.airSpeedMultiplier = 2;
+        this.airAccelFactor = 0.12;
     }
 
     get groundAcceleration() {

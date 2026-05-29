@@ -1,5 +1,5 @@
 class PhysicsSystem extends System {
-    constructor(gravity = [0, 2000]) {
+    constructor(gravity = [0, 1000]) {
         super(['Physics', 'Transform']);
         this.gravity = gravity;
         this.bodies = [];
