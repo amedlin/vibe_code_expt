@@ -35,10 +35,6 @@ class LevelManager {
         this.engine.ecs.clearEntities();
         console.log('ECS entities cleared');
 
-        // Create player entity
-        this.createPlayer();
-        console.log('Player created');
-
         // Create platform entities from levelData.platforms
         if (levelData.platforms && levelData.platforms.length > 0) {
             console.log('Creating platforms, count:', levelData.platforms.length);
@@ -62,6 +58,9 @@ class LevelManager {
                 this.createDecoration(decorDef, levelData.platforms);
             }
         }
+
+        const spawn = findSafePlayerSpawn(levelData, this.engine.canvasWidth);
+        this.createPlayer(spawn.x, spawn.y);
     }
 
     createDecoration(decorDef, platforms) {
@@ -116,13 +115,18 @@ class LevelManager {
         entity.addComponent('TangramPiece', new TangramPieceComponent(pieceDef.pieceId));
     }
 
-    createPlayer() {
+    createPlayer(x = DEFAULT_PLAYER_SPAWN_X, y = DEFAULT_PLAYER_SPAWN_Y) {
         try {
             console.log('Creating player entity...');
             const entity = this.engine.ecs.createEntity();
             console.log('Entity created:', entity.id);
 
-            entity.addComponent('Transform', new TransformComponent(100, 300, 30, 40));
+            entity.addComponent('Transform', new TransformComponent(
+                x,
+                y,
+                PLAYER_SPAWN_WIDTH,
+                PLAYER_SPAWN_HEIGHT
+            ));
             console.log('Transform component added');
 
             entity.addComponent('Physics', new PhysicsComponent({
