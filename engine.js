@@ -1,4 +1,23 @@
 class GameEngine {
+    static fromDOM(options = {}) {
+        const canvas = document.getElementById(options.canvasId ?? 'gameCanvas');
+        const levelFileInput = document.getElementById(options.levelFileInputId ?? 'levelFile');
+        const levelStatus = document.getElementById(options.levelStatusId ?? 'levelStatus');
+
+        const width = options.width ?? 800;
+        const height = options.height ?? 600;
+        canvas.width = width;
+        canvas.height = height;
+
+        return new GameEngine(canvas, {
+            ...options,
+            width,
+            height,
+            levelFileInput,
+            levelStatus
+        });
+    }
+
     constructor(canvas, options = {}) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
@@ -6,7 +25,7 @@ class GameEngine {
         this.canvasHeight = options.height ?? 600;
         this.levelFileInput = options.levelFileInput ?? null;
         this.levelStatus = options.levelStatus ?? null;
-        this.defaultLevelStatusText = 'Select levels.txt to start';
+        this.defaultLevelStatusText = options.defaultLevelStatusText ?? 'Select levels.txt to start';
 
         this.inputBuffer = new InputBuffer();
         this.lastFrameTime = 0;
@@ -79,14 +98,25 @@ class GameEngine {
     // --- Lifecycle ---
 
     start() {
-        this.attachKeyboardListeners();
+        this.attachListeners();
         this.enterLevelSelect();
         requestAnimationFrame(this._loopBound);
     }
 
-    attachKeyboardListeners() {
+    attachListeners() {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
         window.addEventListener('keyup', (e) => this.onKeyUp(e));
+
+        if (this.levelFileInput) {
+            this.levelFileInput.addEventListener('change', (e) => this.onLevelFileSelected(e));
+        }
+    }
+
+    onLevelFileSelected(event) {
+        const file = event.target.files[0];
+        if (file) {
+            this.loadLevelFromFile(file);
+        }
     }
 
     onKeyDown(e) {
@@ -160,24 +190,29 @@ class GameEngine {
     }
 
     loadLevelFromFile(file) {
-        return this.loadLevel(file).then((levelData) => {
-            if (this.levelStatus) {
-                this.levelStatus.textContent = levelData.name;
-            }
-            console.log(`Loaded level: ${levelData.name}`);
-            return levelData;
-        }).catch((error) => {
-            console.error('Error loading level:', error);
-            if (this.levelStatus) {
-                this.levelStatus.textContent = 'Error: ' + error.message;
-            }
-            throw error;
-        });
+        return this.loadLevel(file)
+            .catch((error) => {
+                console.error('Error loading level:', error);
+                this.setLevelStatus('Error: ' + error.message);
+                throw error;
+            });
     }
 
     async loadLevel(levelFile) {
         const levelData = await this.levelManager.loadLevel(levelFile);
-        this.enterPlaying();
+        this.onLevelLoaded(levelData);
         return levelData;
+    }
+
+    onLevelLoaded(levelData) {
+        this.setLevelStatus(levelData.name);
+        console.log(`Loaded level: ${levelData.name}`);
+        this.enterPlaying();
+    }
+
+    setLevelStatus(text) {
+        if (this.levelStatus) {
+            this.levelStatus.textContent = text;
+        }
     }
 }
