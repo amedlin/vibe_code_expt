@@ -1,81 +1,16 @@
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
 const levelFileInput = document.getElementById('levelFile');
 const levelStatus = document.getElementById('levelStatus');
 
 canvas.width = 800;
 canvas.height = 600;
 
-// Input state
+// Global input state (captured by keyboard listeners)
 const keys = {};
 
-// Game object
-const game = {
-    running: true,
-    deltaTime: 0,
-    lastFrameTime: 0,
-    camera: new Camera(0, 0, canvas.width, canvas.height),
-    currentState: null,
-    physics: new Physics(),
-    playerBody: null,
-    platformBodies: [],
-    currentLevel: null,
-    ecs: new ECS(),
-    renderSystem: null,
-
-    setState(newState) {
-        if (this.currentState) {
-            this.currentState.exit();
-        }
-        this.currentState = newState;
-        this.currentState.enter();
-    },
-
-    async loadLevel(levelFile) {
-        this.currentLevel = await Level.loadFromFile(levelFile);
-    },
-
-    reset() {
-        this.physics.bodies = [];
-        this.platformBodies = [];
-        this.ecs.clear();
-
-        // Create player body
-        this.playerBody = this.physics.addBody(new Body(100, 300, 30, 40, {
-            type: 'dynamic',
-            mass: 1,
-            collisionGroup: 0,
-            collisionMask: 0xFFFF,
-            userData: {
-                speed: 300,
-                jumpPower: 700
-            }
-        }));
-
-        // Create player entity for rendering
-        const playerEntity = this.ecs.createEntity();
-        playerEntity.addComponent('Transform', new TransformComponent(this.playerBody.x, this.playerBody.y, this.playerBody.width, this.playerBody.height));
-        playerEntity.addComponent('AnimatedRender', new AnimatedRenderComponent(new Animator(PLAYER_ANIMATIONS.idle)));
-        playerEntity.addComponent('Physics', new PhysicsComponent(this.playerBody));
-        this.playerEntity = playerEntity;
-
-        // Create platform bodies and entities from current level
-        if (this.currentLevel && this.currentLevel.platforms.length > 0) {
-            this.platformBodies = this.currentLevel.createBodies(this.physics);
-
-            // Create platform entities for rendering
-            for (let platformBody of this.platformBodies) {
-                const platformEntity = this.ecs.createEntity();
-                platformEntity.addComponent('Transform', new TransformComponent(platformBody.x, platformBody.y, platformBody.width, platformBody.height));
-                platformEntity.addComponent('Render', new RenderComponent((ctx, x, y, w, h) => {
-                    ctx.fillStyle = '#8b7355';
-                    ctx.fillRect(x, y, w, h);
-                }));
-                platformEntity.addComponent('Physics', new PhysicsComponent(platformBody));
-            }
-        }
-    }
-};
+// Engine instance
+let engine = null;
+let stateManager = null;
 
 // Event listeners for keyboard input
 window.addEventListener('keydown', (e) => {
@@ -85,6 +20,20 @@ window.addEventListener('keydown', (e) => {
     if (e.key === ' ') {
         e.preventDefault();
     }
+
+    // Pause/Resume
+    if (e.key === 'p' && stateManager && stateManager.currentState === 'playing') {
+        stateManager.setState('paused');
+    } else if (e.key === 'p' && stateManager && stateManager.currentState === 'paused') {
+        stateManager.setState('playing');
+    }
+
+    // Restart on game over
+    if (e.key === 'r' && stateManager && stateManager.currentState === 'gameOver') {
+        engine.reset();
+        levelFileInput.focus();
+        levelFileInput.click();
+    }
 });
 
 window.addEventListener('keyup', (e) => {
@@ -93,25 +42,14 @@ window.addEventListener('keyup', (e) => {
 
 // File input handler for loading levels
 function loadLevelFromFile(file) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        try {
-            const text = event.target.result;
-            game.currentLevel = Level.parse(text);
-            levelStatus.textContent = game.currentLevel.name;
-            game.reset();
-            game.setState(new PlayingState(game));
-            console.log(`Loaded level: ${game.currentLevel.name}`);
-        } catch (error) {
-            console.error('Error parsing level file:', error);
-            levelStatus.textContent = 'Error loading level';
-        }
-    };
-    reader.onerror = () => {
-        console.error('Error reading file');
-        levelStatus.textContent = 'Error reading file';
-    };
-    reader.readAsText(file);
+    engine.loadLevel(file).then((levelData) => {
+        levelStatus.textContent = levelData.name;
+        console.log(`Loaded level: ${levelData.name}`);
+    }).catch((error) => {
+        console.error('Error loading level:', error);
+        console.error('Error details:', error.message, error.stack);
+        levelStatus.textContent = 'Error: ' + error.message;
+    });
 }
 
 levelFileInput.addEventListener('change', (e) => {
@@ -121,23 +59,87 @@ levelFileInput.addEventListener('change', (e) => {
     }
 });
 
-// Main game loop
-function gameLoop(currentTime) {
-    game.deltaTime = (currentTime - game.lastFrameTime) / 1000;
-    game.lastFrameTime = currentTime;
+// Render state-dependent UI
+function renderStateUI() {
+    const ctx = engine.ctx;
+    const width = canvas.width;
+    const height = canvas.height;
 
-    if (game.running && game.currentState) {
-        game.currentState.update(game.deltaTime);
-        game.currentState.render(ctx, game.camera);
+    switch (stateManager.currentState) {
+        case 'levelSelect':
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Select a level file to begin', width / 2, height / 2 - 40);
+            ctx.font = '16px Arial';
+            ctx.fillText('Use the file input above', width / 2, height / 2 + 20);
+            ctx.textAlign = 'left';
+            break;
+
+        case 'paused':
+            // Render the game underneath (already rendered), then overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('PAUSED', width / 2, height / 2 - 20);
+            ctx.font = '16px Arial';
+            ctx.fillText('Press P to resume', width / 2, height / 2 + 30);
+            ctx.textAlign = 'left';
+            break;
+
+        case 'gameOver':
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', width / 2, height / 2 - 40);
+            ctx.font = '20px Arial';
+            ctx.fillText('Press R to restart', width / 2, height / 2 + 40);
+            ctx.textAlign = 'left';
+            break;
+    }
+}
+
+// Main game loop
+let lastFrameTime = 0;
+
+function gameLoop(currentTime) {
+    const deltaTime = (currentTime - lastFrameTime) / 1000;
+    lastFrameTime = currentTime;
+
+    switch (stateManager.currentState) {
+        case 'levelSelect':
+            renderStateUI();
+            break;
+
+        case 'playing':
+            engine.update(deltaTime);
+            engine.render();
+            break;
+
+        case 'paused':
+            engine.render();
+            renderStateUI();
+            break;
+
+        case 'gameOver':
+            renderStateUI();
+            break;
     }
 
     requestAnimationFrame(gameLoop);
 }
 
 // Initialize and start the game
-async function startGame() {
-    game.renderSystem = new RenderSystem(game.camera);
-    game.setState(new LevelSelectState(game));
+function startGame() {
+    engine = new GameEngine(canvas, 800, 600);
+    stateManager = engine.stateManager;
+    stateManager.setState('levelSelect');
     requestAnimationFrame(gameLoop);
 }
 

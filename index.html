@@ -13,13 +13,36 @@
         <span id="levelStatus">Select levels.txt to start</span>
     </div>
     <canvas id="gameCanvas"></canvas>
+    <!-- Core ECS and utilities -->
     <script src="ecs.js"></script>
-    <script src="render.js"></script>
     <script src="camera.js"></script>
-    <script src="physics.js"></script>
     <script src="animation.js"></script>
+    <script src="render.js"></script>
     <script src="level.js"></script>
-    <script src="game-states.js"></script>
+    <script src="animations.js"></script>
+
+    <!-- Components -->
+    <script src="components/input-component.js"></script>
+    <script src="components/movement-component.js"></script>
+    <script src="components/velocity-tracker-component.js"></script>
+    <script src="components/physics-component.js"></script>
+    <script src="components/animation-component.js"></script>
+
+    <!-- Systems -->
+    <script src="systems/input-system.js"></script>
+    <script src="systems/movement-system.js"></script>
+    <script src="systems/boundary-system.js"></script>
+    <script src="systems/physics-system.js"></script>
+    <script src="systems/animation-system.js"></script>
+    <script src="systems/animator-update-system.js"></script>
+    <script src="systems/game-over-system.js"></script>
+
+    <!-- Engine and managers -->
+    <script src="state-manager.js"></script>
+    <script src="level-manager.js"></script>
+    <script src="engine.js"></script>
+
+    <!-- Game loop -->
     <script src="game.js"></script>
 </body>
 </html>

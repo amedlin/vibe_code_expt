@@ -32,13 +32,6 @@ class AnimatedRenderComponent {
     }
 }
 
-// Physics component - stores physics-related data
-class PhysicsComponent {
-    constructor(body) {
-        this.body = body;
-    }
-}
-
 // Render system - handles rendering all renderable entities
 class RenderSystem extends System {
     constructor(camera) {

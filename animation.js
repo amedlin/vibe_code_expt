@@ -82,36 +82,6 @@ class Animator {
     }
 }
 
-// Animation system - manages all animators
-class AnimationSystem {
-    constructor() {
-        this.animators = new Map();
-    }
-
-    registerAnimator(id, animator) {
-        this.animators.set(id, animator);
-        return animator;
-    }
-
-    getAnimator(id) {
-        return this.animators.get(id);
-    }
-
-    unregisterAnimator(id) {
-        return this.animators.delete(id);
-    }
-
-    update(deltaTime) {
-        for (let animator of this.animators.values()) {
-            animator.update(deltaTime);
-        }
-    }
-
-    clear() {
-        this.animators.clear();
-    }
-}
-
 // Helper function to create simple colored frame renderer
 function createColoredFrame(colors = ['#ff6b6b']) {
     return (ctx, x, y, width, height) => {
