@@ -32,16 +32,14 @@ class AnimatedRenderComponent {
     }
 }
 
-// Render system - handles rendering all renderable entities
+// Render system - handles rendering static renderable entities
 class RenderSystem extends System {
     constructor(camera) {
         super(['Transform', 'Render']);
         this.camera = camera;
-        this.animatedRenderSystem = new AnimatedRenderSystem(camera);
     }
 
     update(deltaTime, entities, ctx) {
-        // Render static objects
         const staticEntities = this.getEntitiesWithComponents(entities);
         for (let entity of staticEntities) {
             const transform = entity.getComponent('Transform');
@@ -50,9 +48,6 @@ class RenderSystem extends System {
             const screenPos = this.camera.worldToScreen(transform.x, transform.y);
             render.render(ctx, screenPos.x, screenPos.y, transform.width, transform.height);
         }
-
-        // Render animated objects
-        this.animatedRenderSystem.update(deltaTime, entities, ctx);
     }
 }
 

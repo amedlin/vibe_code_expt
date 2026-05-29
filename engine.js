@@ -13,25 +13,27 @@ class GameEngine {
 
         // Core ECS
         this.ecs = new ECS();
-        this.systems = [];
 
         // Management
         this.stateManager = new StateManager();
         this.levelManager = new LevelManager(this);
         this.camera = new Camera(0, 0, this.canvasWidth, this.canvasHeight);
 
-        this.initializeSystems();
+        this.registerSystems();
     }
 
-    initializeSystems() {
-        // Order matters! Input → Movement → Boundary → Physics → Animation → Game over
-        this.systems.push(new InputSystem(this.inputBuffer));
-        this.systems.push(new MovementSystem());
-        this.systems.push(new BoundarySystem(this.canvasWidth, this.canvasHeight));
-        this.systems.push(new PhysicsSystem([0, 2000]));
-        this.systems.push(new AnimationSystem());
-        this.systems.push(new AnimatorUpdateSystem());
-        this.systems.push(new GameOverSystem(this.canvasHeight, () => this.onGameOver()));
+    registerSystems() {
+        // Update order: Input → Movement → Boundary → Physics → Animation → Game over
+        this.ecs.addUpdateSystem(new InputSystem(this.inputBuffer));
+        this.ecs.addUpdateSystem(new MovementSystem());
+        this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
+        this.ecs.addUpdateSystem(new PhysicsSystem([0, 2000]));
+        this.ecs.addUpdateSystem(new AnimationSystem());
+        this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
+        this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.onGameOver()));
+
+        this.ecs.addRenderSystem(new RenderSystem(this.camera));
+        this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
     }
 
     start() {
@@ -105,21 +107,14 @@ class GameEngine {
     }
 
     update(deltaTime) {
-        for (let system of this.systems) {
-            system.update(deltaTime, this.ecs.entities);
-        }
+        this.ecs.update(deltaTime);
     }
 
     render() {
         this.ctx.fillStyle = '#87ceeb';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-        const renderSystem = new RenderSystem(this.camera);
-        renderSystem.update(0, this.ecs.entities, this.ctx);
-
-        const animatedRenderSystem = new AnimatedRenderSystem(this.camera);
-        animatedRenderSystem.update(0, this.ecs.entities, this.ctx);
-
+        this.ecs.render(this.ctx);
         this.renderDebugInfo();
     }
 

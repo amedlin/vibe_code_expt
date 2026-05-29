@@ -55,7 +55,8 @@ class System {
 class ECS {
     constructor() {
         this.entities = [];
-        this.systems = [];
+        this.updateSystems = [];
+        this.renderSystems = [];
         this.nextEntityId = 0;
     }
 
@@ -76,22 +77,25 @@ class ECS {
         return this.entities.find(e => e.id === id);
     }
 
-    addSystem(system) {
-        this.systems.push(system);
+    addUpdateSystem(system) {
+        this.updateSystems.push(system);
         return this;
     }
 
-    removeSystem(system) {
-        const idx = this.systems.indexOf(system);
-        if (idx !== -1) {
-            this.systems.splice(idx, 1);
-        }
+    addRenderSystem(system) {
+        this.renderSystems.push(system);
         return this;
     }
 
     update(deltaTime) {
-        for (let system of this.systems) {
+        for (let system of this.updateSystems) {
             system.update(deltaTime, this.entities);
+        }
+    }
+
+    render(ctx) {
+        for (let system of this.renderSystems) {
+            system.update(0, this.entities, ctx);
         }
     }
 
@@ -103,13 +107,15 @@ class ECS {
 
     clear() {
         this.clearEntities();
-        this.systems = [];
+        this.updateSystems = [];
+        this.renderSystems = [];
     }
 
     getStats() {
         return {
             entityCount: this.entities.length,
-            systemCount: this.systems.length
+            updateSystemCount: this.updateSystems.length,
+            renderSystemCount: this.renderSystems.length
         };
     }
 }
