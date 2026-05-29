@@ -12,31 +12,25 @@ class MovementSystem extends System {
             const tracker = entity.getComponent('VelocityTracker');
 
             if (physics.isGrounded) {
-                const accel = movement.groundAcceleration;
-
+                let targetVx = 0;
                 if (input.moveLeft) {
-                    if (physics.vx > 0) {
-                        physics.vx = 0;
-                    }
-                    physics.vx = this.accelerateToward(
-                        physics.vx,
-                        -movement.speed,
-                        accel,
-                        deltaTime
-                    );
+                    targetVx = -movement.speed;
                 } else if (input.moveRight) {
-                    if (physics.vx < 0) {
-                        physics.vx = 0;
-                    }
-                    physics.vx = this.accelerateToward(
-                        physics.vx,
-                        movement.speed,
-                        accel,
-                        deltaTime
-                    );
-                } else {
+                    targetVx = movement.speed;
+                }
+
+                if (input.moveLeft && physics.vx > 0) {
+                    physics.vx = 0;
+                } else if (input.moveRight && physics.vx < 0) {
                     physics.vx = 0;
                 }
+
+                physics.vx = this.accelerateToward(
+                    physics.vx,
+                    targetVx,
+                    movement.groundAcceleration,
+                    deltaTime
+                );
             }
 
             if (input.jump && physics.isGrounded) {
