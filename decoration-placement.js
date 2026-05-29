@@ -34,3 +34,42 @@ function findDecorationSurfaceY(platforms, anchorX, spriteWidth, yHint = null) {
 
     return Math.min(...surfaces);
 }
+
+const BACK_SCALE_MIN = 0.9;
+const BACK_SCALE_MAX = 0.95;
+const FRONT_DISPLACE_MIN = 2;
+const FRONT_DISPLACE_MAX = 10;
+const FRONT_SCALE_MAX = 0.05;
+
+function computeDecorationTransform(sprite, surfaceY, anchorX, depthLayer) {
+    if (depthLayer === 'back') {
+        const scale = BACK_SCALE_MIN + Math.random() * (BACK_SCALE_MAX - BACK_SCALE_MIN);
+        const width = sprite.width * scale;
+        const height = sprite.height * scale;
+        return {
+            x: anchorX,
+            y: surfaceY - height,
+            width,
+            height,
+            scale,
+            depthOffset: 0
+        };
+    }
+
+    const depthOffset = FRONT_DISPLACE_MIN +
+        Math.random() * (FRONT_DISPLACE_MAX - FRONT_DISPLACE_MIN);
+    const depthT = (depthOffset - FRONT_DISPLACE_MIN) /
+        (FRONT_DISPLACE_MAX - FRONT_DISPLACE_MIN);
+    const scale = 1 + depthT * FRONT_SCALE_MAX;
+    const width = sprite.width * scale;
+    const height = sprite.height * scale;
+
+    return {
+        x: anchorX,
+        y: surfaceY + depthOffset - height,
+        width,
+        height,
+        scale,
+        depthOffset
+    };
+}

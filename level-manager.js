@@ -83,14 +83,20 @@ class LevelManager {
         }
 
         const depthLayer = Math.random() < 0.5 ? 'back' : 'front';
+        const placement = computeDecorationTransform(sprite, surfaceY, decorDef.x, depthLayer);
         const entity = this.engine.ecs.createEntity();
         entity.addComponent('Transform', new TransformComponent(
-            decorDef.x,
-            surfaceY - sprite.height,
-            sprite.width,
-            sprite.height
+            placement.x,
+            placement.y,
+            placement.width,
+            placement.height
         ));
-        entity.addComponent('Decoration', new DecorationComponent(decorDef.type, depthLayer));
+        entity.addComponent('Decoration', new DecorationComponent(
+            decorDef.type,
+            depthLayer,
+            placement.scale,
+            placement.depthOffset
+        ));
     }
 
     createTangramPiece(pieceDef) {
