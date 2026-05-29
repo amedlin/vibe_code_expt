@@ -11,13 +11,15 @@ class MovementSystem extends System {
             const physics = entity.getComponent('Physics');
             const tracker = entity.getComponent('VelocityTracker');
 
-            // Horizontal movement
-            if (input.moveLeft) {
-                physics.vx = -movement.speed;
-            } else if (input.moveRight) {
-                physics.vx = movement.speed;
-            } else {
-                physics.vx = 0;
+            // Horizontal movement only while grounded
+            if (physics.isGrounded) {
+                if (input.moveLeft) {
+                    physics.vx = -movement.speed;
+                } else if (input.moveRight) {
+                    physics.vx = movement.speed;
+                } else {
+                    physics.vx = 0;
+                }
             }
 
             // Jump
@@ -28,7 +30,7 @@ class MovementSystem extends System {
 
             // Track velocity for animation
             tracker.lastVx = physics.vx;
-            tracker.isMoving = physics.vx !== 0;
+            tracker.isMoving = physics.isGrounded && physics.vx !== 0;
         }
     }
 }
