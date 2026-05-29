@@ -78,9 +78,22 @@ body {
     visibility: hidden;
 }
 
+#gameLayout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+}
+
 #gameCanvas {
     border: 2px solid #fff;
     background-color: #87ceeb;
+    display: block;
+}
+
+#inventoryCanvas {
+    border: 2px solid #fff;
+    border-left: none;
+    background-color: #1e1e1e;
     display: block;
 }
 

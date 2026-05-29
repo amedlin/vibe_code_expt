@@ -8,16 +8,22 @@ class GameEngine {
         const restartLevelButton = document.getElementById(options.restartLevelButtonId ?? 'restartLevel');
         const levelStatus = document.getElementById(options.levelStatusId ?? 'levelStatus');
         const levelHeading = document.getElementById(options.levelHeadingId ?? 'levelHeading');
+        const inventoryCanvas = document.getElementById(options.inventoryCanvasId ?? 'inventoryCanvas');
 
         const width = options.width ?? 800;
         const height = options.height ?? 600;
+        const inventoryWidth = options.inventoryWidth ?? 120;
         canvas.width = width;
         canvas.height = height;
+        inventoryCanvas.width = inventoryWidth;
+        inventoryCanvas.height = height;
 
         return new GameEngine(canvas, {
             ...options,
             width,
             height,
+            inventoryWidth,
+            inventoryCanvas,
             levelFileInput,
             restartLevelButton,
             levelStatus,
@@ -28,6 +34,9 @@ class GameEngine {
     constructor(canvas, options = {}) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
+        this.inventoryCanvas = options.inventoryCanvas ?? null;
+        this.inventoryCtx = this.inventoryCanvas ? this.inventoryCanvas.getContext('2d') : null;
+        this.inventoryWidth = options.inventoryWidth ?? 120;
         this.canvasWidth = options.width ?? 800;
         this.canvasHeight = options.height ?? 600;
         this.levelFileInput = options.levelFileInput ?? null;
@@ -68,11 +77,12 @@ class GameEngine {
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front'));
-        this.ecs.addRenderSystem(new InventoryRenderSystem(
+
+        this.inventoryRenderSystem = new InventoryRenderSystem(
             () => this.ecs.playerEntity,
-            this.canvasWidth,
+            this.inventoryWidth,
             this.canvasHeight
-        ));
+        );
     }
 
     // --- State transitions (single entry points) ---
@@ -84,6 +94,7 @@ class GameEngine {
         this.currentLevelName = null;
         this.updateRestartButton();
         this.setLevelHeading(null);
+        this.clearInventoryPanel();
         if (this.levelStatus) {
             this.levelStatus.textContent = this.defaultLevelStatusText;
         }
@@ -234,6 +245,21 @@ class GameEngine {
 
         if (showDebugHud) {
             this.renderDebugInfo();
+        }
+
+        this.renderInventory();
+    }
+
+    renderInventory() {
+        if (!this.inventoryCtx || !this.inventoryRenderSystem) {
+            return;
+        }
+        this.inventoryRenderSystem.update(0, this.ecs.entities, this.inventoryCtx);
+    }
+
+    clearInventoryPanel() {
+        if (this.inventoryCtx && this.inventoryRenderSystem) {
+            this.inventoryRenderSystem.clear(this.inventoryCtx);
         }
     }
 

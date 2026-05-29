@@ -1,39 +1,40 @@
 class InventoryRenderSystem extends System {
-    constructor(getPlayerEntity, canvasWidth, canvasHeight) {
+    constructor(getPlayerEntity, panelWidth, panelHeight) {
         super(['Inventory']);
         this.getPlayerEntity = getPlayerEntity;
-        this.canvasWidth = canvasWidth;
-        this.canvasHeight = canvasHeight;
-        this.panelWidth = 120;
+        this.panelWidth = panelWidth;
+        this.panelHeight = panelHeight;
         this.slotHeight = 72;
         this.padding = 8;
     }
 
     update(deltaTime, entities, ctx) {
         const player = this.getPlayerEntity();
-        if (!player) return;
+        if (!player) {
+            this.clear(ctx);
+            return;
+        }
 
         const inventory = player.getComponent('Inventory');
-        const panelX = this.canvasWidth - this.panelWidth;
 
         ctx.save();
-        ctx.fillStyle = 'rgba(30, 30, 30, 0.85)';
-        ctx.fillRect(panelX, 0, this.panelWidth, this.canvasHeight);
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, this.panelWidth, this.panelHeight);
 
         ctx.fillStyle = '#ecf0f1';
         ctx.font = 'bold 13px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Tangram', panelX + this.panelWidth / 2, 22);
-        ctx.fillText(`${inventory.collected.length} / ${TANGRAM_PIECE_IDS.length}`, panelX + this.panelWidth / 2, 38);
+        ctx.fillText('Tangram', this.panelWidth / 2, 22);
+        ctx.fillText(`${inventory.collected.length} / ${TANGRAM_PIECE_IDS.length}`, this.panelWidth / 2, 38);
         ctx.textAlign = 'left';
 
         for (let i = 0; i < TANGRAM_PIECE_IDS.length; i++) {
             const slotY = 48 + i * this.slotHeight;
-            const slotCenterX = panelX + this.panelWidth / 2;
+            const slotCenterX = this.panelWidth / 2;
 
             ctx.strokeStyle = '#555';
             ctx.lineWidth = 1;
-            ctx.strokeRect(panelX + this.padding, slotY, this.panelWidth - this.padding * 2, this.slotHeight - 6);
+            ctx.strokeRect(this.padding, slotY, this.panelWidth - this.padding * 2, this.slotHeight - 6);
 
             const pieceId = inventory.collected[i];
             if (pieceId) {
@@ -45,5 +46,10 @@ class InventoryRenderSystem extends System {
         }
 
         ctx.restore();
+    }
+
+    clear(ctx) {
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, this.panelWidth, this.panelHeight);
     }
 }

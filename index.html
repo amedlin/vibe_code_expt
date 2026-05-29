@@ -15,7 +15,10 @@
         <span id="levelStatus">Select a level file to start</span>
     </div>
     <h1 id="levelHeading" class="level-heading is-hidden" aria-hidden="true"></h1>
-    <canvas id="gameCanvas"></canvas>
+    <div id="gameLayout">
+        <canvas id="gameCanvas"></canvas>
+        <canvas id="inventoryCanvas"></canvas>
+    </div>
     <!-- Core ECS and utilities -->
     <script src="ecs.js"></script>
     <script src="input-buffer.js"></script>
