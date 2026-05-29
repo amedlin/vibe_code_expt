@@ -1,5 +1,6 @@
 # Level 1 - Platformer Challenge
-# Format: x, y, width, height
+# Platform: x, y, width, height
+# Tangram: piece_id, x, y
 # Ground platform
 0, 550, 800, 50
 # Lower platforms
@@ -10,3 +11,11 @@
 300, 250, 200, 20
 150, 150, 100, 20
 550, 150, 100, 20
+# Tangram pieces (seven standard pieces, distributed on reachable platforms)
+large_tri_1, 270, 370
+large_tri_2, 530, 310
+medium_tri, 120, 294
+small_tri_1, 350, 210
+small_tri_2, 570, 110
+square, 175, 110
+parallelogram, 400, 515

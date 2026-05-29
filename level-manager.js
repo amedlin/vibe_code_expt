@@ -50,6 +50,29 @@ class LevelManager {
         } else {
             console.log('No platforms in level data');
         }
+
+        if (levelData.tangramPieces && levelData.tangramPieces.length > 0) {
+            for (let pieceDef of levelData.tangramPieces) {
+                this.createTangramPiece(pieceDef);
+            }
+        }
+    }
+
+    createTangramPiece(pieceDef) {
+        const def = getTangramPiece(pieceDef.pieceId);
+        if (!def) {
+            console.warn('Unknown tangram piece:', pieceDef.pieceId);
+            return;
+        }
+
+        const entity = this.engine.ecs.createEntity();
+        entity.addComponent('Transform', new TransformComponent(
+            pieceDef.x,
+            pieceDef.y,
+            def.width,
+            def.height
+        ));
+        entity.addComponent('TangramPiece', new TangramPieceComponent(pieceDef.pieceId));
     }
 
     createPlayer() {
@@ -82,6 +105,9 @@ class LevelManager {
 
             entity.addComponent('VelocityTracker', new VelocityTrackerComponent());
             console.log('VelocityTracker component added');
+
+            entity.addComponent('Inventory', new InventoryComponent());
+            console.log('Inventory component added');
 
             // Create animator and store in both Animation and AnimatedRender
             console.log('Creating animator, PLAYER_ANIMATIONS =', PLAYER_ANIMATIONS);

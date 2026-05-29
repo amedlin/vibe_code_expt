@@ -49,10 +49,20 @@ class GameEngine {
         this.ecs.addUpdateSystem(new PhysicsSystem([0, 2000]));
         this.ecs.addUpdateSystem(new AnimationSystem());
         this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
+        this.ecs.addUpdateSystem(new TangramCollectionSystem(
+            () => this.ecs.playerEntity,
+            () => this.ecs
+        ));
         this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
 
         this.ecs.addRenderSystem(new RenderSystem(this.camera));
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
+        this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
+        this.ecs.addRenderSystem(new InventoryRenderSystem(
+            () => this.ecs.playerEntity,
+            this.canvasWidth,
+            this.canvasHeight
+        ));
     }
 
     // --- State transitions (single entry points) ---

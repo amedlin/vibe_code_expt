@@ -1,19 +1,20 @@
 // Level class for managing level data and platform definitions
 class Level {
-    constructor(name, platforms = []) {
+    constructor(name, platforms = [], tangramPieces = []) {
         this.name = name;
         this.platforms = platforms;
+        this.tangramPieces = tangramPieces;
     }
 
     static parse(text) {
         const lines = text.split('\n');
         const platforms = [];
+        const tangramPieces = [];
         let levelName = 'Unnamed Level';
 
         for (let line of lines) {
             line = line.trim();
 
-            // Skip empty lines and comments
             if (!line || line.startsWith('#')) {
                 if (line.startsWith('# Level')) {
                     levelName = line.substring(1).trim();
@@ -21,19 +22,30 @@ class Level {
                 continue;
             }
 
-            // Parse platform definition: x, y, width, height
-            const parts = line.split(',').map(p => parseFloat(p.trim()));
-            if (parts.length === 4 && parts.every(p => !isNaN(p))) {
-                platforms.push({
-                    x: parts[0],
-                    y: parts[1],
-                    width: parts[2],
-                    height: parts[3]
-                });
-                console.log(`Parsed platform: x=${parts[0]}, y=${parts[1]}, w=${parts[2]}, h=${parts[3]}`);
+            const parts = line.split(',').map((p) => p.trim());
+
+            if (parts.length === 3 && isTangramPieceId(parts[0])) {
+                const x = parseFloat(parts[1]);
+                const y = parseFloat(parts[2]);
+                if (!isNaN(x) && !isNaN(y)) {
+                    tangramPieces.push({ pieceId: parts[0], x, y });
+                }
+                continue;
+            }
+
+            if (parts.length === 4) {
+                const nums = parts.map((p) => parseFloat(p));
+                if (nums.every((n) => !isNaN(n))) {
+                    platforms.push({
+                        x: nums[0],
+                        y: nums[1],
+                        width: nums[2],
+                        height: nums[3]
+                    });
+                }
             }
         }
 
-        return new Level(levelName, platforms);
+        return new Level(levelName, platforms, tangramPieces);
     }
 }
