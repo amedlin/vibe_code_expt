@@ -36,25 +36,4 @@ class Level {
 
         return new Level(levelName, platforms);
     }
-
-    createBodies(physics) {
-        const bodies = [];
-        for (let platformDef of this.platforms) {
-            const body = physics.addBody(new Body(
-                platformDef.x,
-                platformDef.y,
-                platformDef.width,
-                platformDef.height,
-                {
-                    type: 'platform',
-                    collisionGroup: 1,
-                    collisionMask: 0xFFFF,
-                    userData: { name: 'platform' }
-                }
-            ));
-            bodies.push(body);
-        }
-        console.log(`Created ${bodies.length} platform bodies`);
-        return bodies;
-    }
 }
