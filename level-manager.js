@@ -32,8 +32,8 @@ class LevelManager {
 
     spawnLevel(levelData) {
         console.log('Spawning level:', levelData);
-        this.engine.ecs.clear();
-        console.log('ECS cleared');
+        this.engine.ecs.clearEntities();
+        console.log('ECS entities cleared');
 
         // Create player entity
         this.createPlayer();

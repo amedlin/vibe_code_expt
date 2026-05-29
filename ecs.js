@@ -95,8 +95,14 @@ class ECS {
         }
     }
 
-    clear() {
+    clearEntities() {
         this.entities = [];
+        this.playerEntity = null;
+        this.nextEntityId = 0;
+    }
+
+    clear() {
+        this.clearEntities();
         this.systems = [];
     }
 
