@@ -7,7 +7,7 @@ class AIStateComponent {
         this.collectiblePlan = [];
         this.planIndex = 0;
         this.targetEntityId = null;
-        this.path = [];
+        this.route = null;
         this.pathStep = 0;
         this.transit = null;
         this.currentPlatformId = null;

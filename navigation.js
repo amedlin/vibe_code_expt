@@ -17,10 +17,14 @@ function computeNavLimits(jumpPower, gravity, speed, agentWidth = 30) {
 class NavigationGraph {
     constructor() {
         this.platforms = [];
+        this.adjacency = new Map();
+        this.limits = null;
     }
 
-    rebuild(entities) {
+    rebuild(entities, limits, canvasWidth = 800) {
+        this.limits = limits;
         this.platforms = [];
+
         for (const entity of entities) {
             if (!entity.hasComponent('Walkable') || !entity.hasComponent('Transform')) {
                 continue;
@@ -36,6 +40,113 @@ class NavigationGraph {
                 centerX: t.x + t.width / 2
             });
         }
+
+        const maxTop = this.platforms.reduce((m, p) => Math.max(m, p.top), 0);
+        for (const platform of this.platforms) {
+            platform.isGround = platform.top === maxTop ||
+                platform.width >= canvasWidth * 0.85;
+        }
+
+        this.preprocessConnectivity();
+    }
+
+    preprocessConnectivity() {
+        this.adjacency = new Map();
+        const agentWidth = this.limits.agentWidth;
+
+        for (const from of this.platforms) {
+            const edges = [];
+
+            for (const to of this.platforms) {
+                if (from.id === to.id) continue;
+
+                const edge = this.computeEdge(from, to, agentWidth);
+                if (edge) {
+                    edges.push(edge);
+                }
+            }
+
+            this.adjacency.set(from.id, edges);
+        }
+    }
+
+    computeEdge(from, to, agentWidth) {
+        const gap = horizontalGap(from, to);
+        const heightDiff = to.top - from.top;
+        const limits = this.limits;
+
+        let action = null;
+        if (Math.abs(heightDiff) <= 5 && gap <= limits.maxWalkGap) {
+            action = 'walk';
+        } else if (heightDiff < -5 && -heightDiff <= limits.maxJumpUp && gap <= limits.maxJumpHorz) {
+            action = 'jump';
+        } else if (heightDiff > 5 && heightDiff <= limits.maxFallDrop) {
+            const overlapLeft = Math.max(from.left, to.left);
+            const overlapRight = Math.min(from.right, to.right);
+            if (overlapRight - overlapLeft >= agentWidth) {
+                action = 'fall';
+            } else if (to.left >= from.right && to.left - from.right <= limits.maxWalkGap) {
+                action = 'fall';
+            } else if (to.right <= from.left && from.left - to.right <= limits.maxWalkGap) {
+                action = 'fall';
+            }
+        }
+
+        if (!action) {
+            return null;
+        }
+
+        const approachX = this.computeApproachX(from, to, agentWidth, action);
+        const moveDir = to.centerX >= approachX + agentWidth / 2 ? 1 : -1;
+
+        return {
+            toId: to.id,
+            action,
+            approachX,
+            moveDir,
+            heightDiff
+        };
+    }
+
+    computeApproachX(from, to, agentWidth, action) {
+        const overlapLeft = Math.max(from.left, to.left);
+        const overlapRight = Math.min(from.right, to.right);
+        const hasOverlap = overlapRight - overlapLeft >= agentWidth;
+
+        if (action === 'walk') {
+            if (hasOverlap) {
+                const targetX = (overlapLeft + overlapRight) / 2 - agentWidth / 2;
+                return clamp(targetX, from.left, from.right - agentWidth);
+            }
+            return clamp(to.centerX - agentWidth / 2, from.left, from.right - agentWidth);
+        }
+
+        if (action === 'jump') {
+            if (hasOverlap) {
+                return clamp(
+                    to.centerX - agentWidth / 2,
+                    from.left,
+                    from.right - agentWidth
+                );
+            }
+            if (to.left >= from.right) {
+                return clamp(from.right - agentWidth - 2, from.left, from.right - agentWidth);
+            }
+            return from.left + 2;
+        }
+
+        // fall — move toward the side above the target, not the screen edge
+        if (hasOverlap && to.centerX >= from.left && to.centerX <= from.right) {
+            return clamp(
+                to.centerX - agentWidth / 2,
+                from.left,
+                from.right - agentWidth
+            );
+        }
+        if (to.centerX >= from.centerX) {
+            return clamp(from.right - agentWidth, from.left, from.right - agentWidth);
+        }
+        return from.left;
     }
 
     getPlatforms() {
@@ -46,7 +157,15 @@ class NavigationGraph {
         return this.platforms.find((p) => p.id === id) ?? null;
     }
 
-    findPath(fromPlatform, toPlatform, limits) {
+    getEdgesFrom(platformId) {
+        return this.adjacency.get(platformId) ?? [];
+    }
+
+    getEdge(fromId, toId) {
+        return this.getEdgesFrom(fromId).find((e) => e.toId === toId) ?? null;
+    }
+
+    findPath(fromPlatform, toPlatform) {
         if (!fromPlatform || !toPlatform) {
             return null;
         }
@@ -56,27 +175,23 @@ class NavigationGraph {
 
         const queue = [[fromPlatform.id]];
         const visited = new Set([fromPlatform.id]);
-        const cameFrom = new Map();
-        const edgeAction = new Map();
+        const edgeKey = new Map();
 
         while (queue.length > 0) {
             const path = queue.shift();
             const currentId = path[path.length - 1];
-            const current = this.getPlatformById(currentId);
 
-            for (const edge of this.getEdgesFrom(current, limits)) {
-                const nextId = edge.to.id;
-                if (visited.has(nextId)) continue;
+            for (const edge of this.getEdgesFrom(currentId)) {
+                if (visited.has(edge.toId)) continue;
 
-                cameFrom.set(nextId, currentId);
-                edgeAction.set(`${currentId}->${nextId}`, edge.action);
-                const nextPath = path.concat(nextId);
+                edgeKey.set(`${currentId}->${edge.toId}`, edge);
+                const nextPath = path.concat(edge.toId);
 
-                if (nextId === toPlatform.id) {
-                    return this.buildPathResult(nextPath, edgeAction);
+                if (edge.toId === toPlatform.id) {
+                    return this.buildPathResult(nextPath, edgeKey);
                 }
 
-                visited.add(nextId);
+                visited.add(edge.toId);
                 queue.push(nextPath);
             }
         }
@@ -84,65 +199,24 @@ class NavigationGraph {
         return null;
     }
 
-    buildPathResult(platformIds, edgeAction) {
+    buildPathResult(platformIds, edgeKey) {
         const steps = [];
         for (let i = 0; i < platformIds.length - 1; i++) {
             const fromId = platformIds[i];
             const toId = platformIds[i + 1];
+            const edge = edgeKey.get(`${fromId}->${toId}`);
             steps.push({
                 fromId,
                 toId,
-                action: edgeAction.get(`${fromId}->${toId}`)
+                action: edge.action,
+                approachX: edge.approachX,
+                moveDir: edge.moveDir
             });
         }
         return { platformIds, steps };
     }
 
-    pathCost(fromPlatform, toPlatform, limits) {
-        const path = this.findPath(fromPlatform, toPlatform, limits);
-        if (!path) {
-            return Infinity;
-        }
-        return path.platformIds.length;
-    }
-
-    getEdgesFrom(current, limits) {
-        const edges = [];
-        const agentWidth = limits.agentWidth ?? 30;
-
-        for (const other of this.platforms) {
-            if (other.id === current.id) continue;
-
-            const gap = horizontalGap(current, other);
-            const heightDiff = other.top - current.top;
-
-            if (Math.abs(heightDiff) <= 5 && gap <= limits.maxWalkGap) {
-                edges.push({ to: other, action: 'walk' });
-                continue;
-            }
-
-            if (heightDiff < -5 && -heightDiff <= limits.maxJumpUp && gap <= limits.maxJumpHorz) {
-                edges.push({ to: other, action: 'jump' });
-                continue;
-            }
-
-            if (heightDiff > 5 && heightDiff <= limits.maxFallDrop) {
-                const overlapLeft = Math.max(current.left, other.left);
-                const overlapRight = Math.min(current.right, other.right);
-                if (overlapRight - overlapLeft >= agentWidth) {
-                    edges.push({ to: other, action: 'fall' });
-                } else if (other.left >= current.right && other.left - current.right <= limits.maxWalkGap) {
-                    edges.push({ to: other, action: 'fall' });
-                } else if (other.right <= current.left && current.left - other.right <= limits.maxWalkGap) {
-                    edges.push({ to: other, action: 'fall' });
-                }
-            }
-        }
-
-        return edges;
-    }
-
-    buildCollectiblePlan(collectibles, startPlatform, limits) {
+    buildCollectiblePlan(collectibles, startPlatform) {
         if (!startPlatform || collectibles.length === 0) {
             return [];
         }
@@ -159,7 +233,7 @@ class NavigationGraph {
                 const goalPlatform = platformForTarget(remaining[i], this.platforms);
                 if (!goalPlatform) continue;
 
-                const path = this.findPath(currentPlatform, goalPlatform, limits);
+                const path = this.findPath(currentPlatform, goalPlatform);
                 if (!path) continue;
 
                 const score = path.platformIds.length * 1000 + Math.hypot(
@@ -188,6 +262,10 @@ class NavigationGraph {
 
         return plan;
     }
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
 }
 
 function getCollectibleTargets(entities) {
@@ -223,7 +301,7 @@ function platformForFeet(feetY, centerX, platforms) {
             continue;
         }
         if (centerX >= platform.left - 4 && centerX <= platform.right + 4) {
-            if (!match || platform.top < match.top) {
+            if (!match || platform.top > match.top) {
                 match = platform;
             }
         }
@@ -258,96 +336,19 @@ function platformForTarget(target, platforms) {
     return best;
 }
 
-function getTransition(from, to, agentWidth, action) {
-    const resolvedAction = action ?? 'walk';
-
-    if (resolvedAction === 'walk') {
-        const overlapLeft = Math.max(from.left, to.left);
-        const overlapRight = Math.min(from.right, to.right);
-        const targetX = overlapLeft < overlapRight
-            ? (overlapLeft + overlapRight) / 2 - agentWidth / 2
-            : (to.centerX - agentWidth / 2);
-        const clampedX = clamp(targetX, from.left, from.right - agentWidth);
-        return { action: 'walk', targetX: clampedX, moveDir: moveDirToward(clampedX, from), committed: false };
-    }
-
-    if (resolvedAction === 'jump') {
-        const targetX = getJumpApproachX(from, to, agentWidth);
-        return { action: 'jump', targetX, moveDir: moveDirToward(targetX, from), committed: false };
-    }
-
-    const targetX = getFallApproachX(from, to, agentWidth);
-    return { action: 'fall', targetX, moveDir: moveDirToward(targetX, from), committed: false };
-}
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-function moveDirToward(targetX, from) {
-    const fromCenter = from.left + from.width / 2;
-    return targetX + 15 >= fromCenter ? 1 : -1;
-}
-
-function getJumpApproachX(from, to, agentWidth) {
-    const overlapLeft = Math.max(from.left, to.left);
-    const overlapRight = Math.min(from.right, to.right);
-
-    if (overlapRight - overlapLeft >= agentWidth) {
-        const standX = to.centerX - agentWidth / 2;
-        return clamp(standX, from.left, from.right - agentWidth);
-    }
-
-    if (to.left >= from.right) {
-        return clamp(from.right - agentWidth - 2, from.left, from.right - agentWidth);
-    }
-
-    if (to.right <= from.left) {
-        return from.left + 2;
-    }
-
-    return clamp(to.centerX - agentWidth / 2, from.left, from.right - agentWidth);
-}
-
-function getFallApproachX(from, to, agentWidth) {
-    const overlapLeft = Math.max(from.left, to.left);
-    const overlapRight = Math.min(from.right, to.right);
-
-    if (overlapRight - overlapLeft >= agentWidth) {
-        if (to.centerX >= from.centerX) {
-            return clamp(from.right - agentWidth + 2, from.left, from.right - agentWidth);
-        }
-        return clamp(from.left + 2, from.left, from.right - agentWidth);
-    }
-
-    if (to.centerX >= from.centerX) {
-        return from.right - agentWidth + 2;
-    }
-
-    return from.left + 2;
-}
-
-// Backward-compatible helpers for tests and callers.
 function findPlatformPath(fromPlatform, toPlatform, platforms, limits) {
     const graph = new NavigationGraph();
     graph.platforms = platforms;
-    const path = graph.findPath(fromPlatform, toPlatform, limits);
+    graph.limits = limits;
+    graph.preprocessConnectivity();
+    const path = graph.findPath(fromPlatform, toPlatform);
     return path ? path.platformIds : null;
 }
 
 function buildCollectiblePlan(collectibles, startPlatform, platforms, limits) {
     const graph = new NavigationGraph();
     graph.platforms = platforms;
-    return graph.buildCollectiblePlan(collectibles, startPlatform, limits);
-}
-
-function getEdgeAction(from, to, platforms, limits) {
-    const graph = new NavigationGraph();
-    graph.platforms = platforms;
-    for (const edge of graph.getEdgesFrom(from, limits)) {
-        if (edge.to.id === to.id) {
-            return edge.action;
-        }
-    }
-    return null;
+    graph.limits = limits;
+    graph.preprocessConnectivity();
+    return graph.buildCollectiblePlan(collectibles, startPlatform);
 }

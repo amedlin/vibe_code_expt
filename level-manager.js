@@ -61,7 +61,13 @@ class LevelManager {
 
         const spawn = findSafePlayerSpawn(levelData, this.engine.canvasWidth);
         this.createPlayer(spawn.x, spawn.y);
-        this.engine.navigationGraph.rebuild(this.engine.ecs.entities);
+
+        const navLimits = computeNavLimits(700, this.engine.gravity, 300, PLAYER_SPAWN_WIDTH);
+        this.engine.navigationGraph.rebuild(
+            this.engine.ecs.entities,
+            navLimits,
+            this.engine.canvasWidth
+        );
         resetAIStateOnEntities(this.engine.ecs.entities);
     }
 

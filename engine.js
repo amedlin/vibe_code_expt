@@ -69,8 +69,7 @@ class GameEngine {
         this.ecs.addUpdateSystem(new AISystem(
             () => this.inputSourceManager.getSourceId(),
             () => this.navigationGraph,
-            () => this.stateManager.getState(),
-            () => this.gravity
+            () => this.stateManager.getState()
         ));
         this.ecs.addUpdateSystem(new InputSystem(
             this.inputBuffer,
