@@ -175,6 +175,7 @@ class AISystem extends System {
                     action: step.action,
                     targetX: step.approachX,
                     moveDir: step.moveDir,
+                    jumpAtEdge: step.jumpAtEdge ?? false,
                     toPlatformId: to,
                     committed: false
                 };
@@ -186,7 +187,31 @@ class AISystem extends System {
         return null;
     }
 
+    executeFallTransit(transform, physics, transit) {
+        const moveLeft = transit.moveDir < 0;
+        const moveRight = transit.moveDir > 0;
+
+        if (!physics.isGrounded) {
+            return createControlInput(moveLeft, moveRight, false);
+        }
+
+        const reachedEdge = (transit.moveDir > 0 && transform.x >= transit.targetX) ||
+            (transit.moveDir < 0 && transform.x <= transit.targetX);
+
+        if (!reachedEdge) {
+            const dx = transit.targetX - transform.x;
+            return createControlInput(dx < 0, dx > 0, false);
+        }
+
+        transit.committed = true;
+        return createControlInput(moveLeft, moveRight, transit.jumpAtEdge);
+    }
+
     executeTransit(transform, physics, transit) {
+        if (transit.action === 'fall') {
+            return this.executeFallTransit(transform, physics, transit);
+        }
+
         const dx = transit.targetX - transform.x;
         const moveDir = Math.abs(dx) > AI_EDGE_REACH
             ? (dx > 0 ? 1 : -1)
@@ -206,17 +231,6 @@ class AISystem extends System {
             if (atEdge || passedEdge || transit.committed) {
                 transit.committed = true;
                 return createControlInput(moveLeft, moveRight, true);
-            }
-            return this.moveTowardX(transform, transit.targetX, physics, false, true);
-        }
-
-        if (transit.action === 'fall') {
-            if (!physics.isGrounded) {
-                return holdMove;
-            }
-            if (atEdge || passedEdge || transit.committed) {
-                transit.committed = true;
-                return holdMove;
             }
             return this.moveTowardX(transform, transit.targetX, physics, false, true);
         }
@@ -265,7 +279,7 @@ class AISystem extends System {
 
         if (state.stuckTimer >= AI_STUCK_SECONDS &&
             state.transit &&
-            state.transit.action === 'jump') {
+            (state.transit.action === 'jump' || state.transit.jumpAtEdge)) {
             state.stuckTimer = 0;
             state.transit.committed = true;
             state.lastProgressX = x;

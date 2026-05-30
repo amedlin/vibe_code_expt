@@ -85,10 +85,10 @@ class NavigationGraph {
             const overlapRight = Math.min(from.right, to.right);
             if (overlapRight - overlapLeft >= agentWidth) {
                 action = 'fall';
-            } else if (to.left >= from.right && to.left - from.right <= limits.maxWalkGap) {
+            } else if (gap <= limits.maxWalkGap) {
                 action = 'fall';
-            } else if (to.right <= from.left && from.left - to.right <= limits.maxWalkGap) {
-                action = 'fall';
+            } else if (gap <= limits.maxJumpHorz) {
+                action = 'fallJump';
             }
         }
 
@@ -96,19 +96,57 @@ class NavigationGraph {
             return null;
         }
 
-        const approachX = this.computeApproachX(from, to, agentWidth, action);
-        const moveDir = to.centerX >= approachX + agentWidth / 2 ? 1 : -1;
+        let jumpAtEdge = false;
+        if (action === 'fallJump') {
+            jumpAtEdge = true;
+            action = 'fall';
+        }
+
+        let approachX;
+        let moveDir;
+        if (action === 'fall') {
+            const approach = this.computeFallApproach(from, to, agentWidth);
+            approachX = approach.approachX;
+            moveDir = approach.moveDir;
+        } else {
+            approachX = this.computeApproachX(from, to, agentWidth, action);
+            moveDir = to.centerX >= approachX + agentWidth / 2 ? 1 : -1;
+        }
 
         return {
             toId: to.id,
             action,
             approachX,
             moveDir,
+            jumpAtEdge,
             heightDiff
         };
     }
 
+    computeFallApproach(from, to, agentWidth) {
+        const overlapLeft = Math.max(from.left, to.left);
+        const overlapRight = Math.min(from.right, to.right);
+        const hasOverlap = overlapRight - overlapLeft >= agentWidth;
+
+        if (hasOverlap) {
+            if (to.centerX <= from.centerX) {
+                return { approachX: from.left, moveDir: -1 };
+            }
+            return { approachX: from.right - agentWidth, moveDir: 1 };
+        }
+
+        if (to.centerX >= from.centerX) {
+            return { approachX: from.right - agentWidth, moveDir: 1 };
+        }
+
+        return { approachX: from.left, moveDir: -1 };
+    }
+
     computeApproachX(from, to, agentWidth, action) {
+        if (action === 'fall') {
+            return this.computeFallApproach(from, to, agentWidth).approachX;
+        }
+
         const overlapLeft = Math.max(from.left, to.left);
         const overlapRight = Math.min(from.right, to.right);
         const hasOverlap = overlapRight - overlapLeft >= agentWidth;
@@ -135,17 +173,6 @@ class NavigationGraph {
             return from.left + 2;
         }
 
-        // fall — move toward the side above the target, not the screen edge
-        if (hasOverlap && to.centerX >= from.left && to.centerX <= from.right) {
-            return clamp(
-                to.centerX - agentWidth / 2,
-                from.left,
-                from.right - agentWidth
-            );
-        }
-        if (to.centerX >= from.centerX) {
-            return clamp(from.right - agentWidth, from.left, from.right - agentWidth);
-        }
         return from.left;
     }
 
@@ -210,7 +237,8 @@ class NavigationGraph {
                 toId,
                 action: edge.action,
                 approachX: edge.approachX,
-                moveDir: edge.moveDir
+                moveDir: edge.moveDir,
+                jumpAtEdge: edge.jumpAtEdge ?? false
             });
         }
         return { platformIds, steps };
