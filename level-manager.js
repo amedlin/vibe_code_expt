@@ -61,6 +61,8 @@ class LevelManager {
 
         const spawn = findSafePlayerSpawn(levelData, this.engine.canvasWidth);
         this.createPlayer(spawn.x, spawn.y);
+        this.engine.navigationGraph.rebuild(this.engine.ecs.entities);
+        resetAIStateOnEntities(this.engine.ecs.entities);
     }
 
     createDecoration(decorDef, platforms) {
@@ -113,6 +115,7 @@ class LevelManager {
             def.height
         ));
         entity.addComponent('TangramPiece', new TangramPieceComponent(pieceDef.pieceId));
+        entity.addComponent('Collectible', new CollectibleComponent(pieceDef.pieceId));
     }
 
     createPlayer(x = DEFAULT_PLAYER_SPAWN_X, y = DEFAULT_PLAYER_SPAWN_Y) {
@@ -144,6 +147,11 @@ class LevelManager {
 
             entity.addComponent('Input', new InputComponent());
             console.log('Input component added');
+
+            entity.addComponent('PlayerControlled', new PlayerControlledComponent());
+            entity.addComponent('AIAgent', new AIAgentComponent());
+            entity.addComponent('AIState', new AIStateComponent());
+            console.log('Control components added');
 
             entity.addComponent('Movement', new MovementComponent(300, 700));
             console.log('Movement component added');
@@ -187,6 +195,7 @@ class LevelManager {
             collisionMask: 0xFFFF,
             isGrounded: false
         }));
+        entity.addComponent('Walkable', new WalkableComponent());
         entity.addComponent('Render', new RenderComponent((ctx, x, y, w, h) => {
             ctx.fillStyle = '#8b7355';
             ctx.fillRect(x, y, w, h);

@@ -1,17 +1,24 @@
 class InputSystem extends System {
-    constructor(inputSourceManager, getInputContext = () => ({})) {
-        super(['Input']);
-        this.inputSourceManager = inputSourceManager;
-        this.getInputContext = getInputContext;
+    constructor(inputBuffer, getSourceId) {
+        super(['PlayerControlled', 'Input']);
+        this.inputBuffer = inputBuffer;
+        this.getSourceId = getSourceId;
     }
 
     update(deltaTime, entities) {
-        const control = this.inputSourceManager.getControlInput(
-            deltaTime,
-            this.getInputContext()
+        if (this.getSourceId() !== 'player') {
+            return;
+        }
+
+        const keys = this.inputBuffer.keys;
+        const control = createControlInput(
+            keys['a'] || keys['ArrowLeft'],
+            keys['d'] || keys['ArrowRight'],
+            keys['w'] || keys[' '] || keys['ArrowUp']
         );
-        const inputEntities = this.getEntitiesWithComponents(entities);
-        for (let entity of inputEntities) {
+
+        const controlledEntities = this.getEntitiesWithComponents(entities);
+        for (let entity of controlledEntities) {
             applyControlInput(entity.getComponent('Input'), control);
         }
     }

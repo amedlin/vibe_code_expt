@@ -1,6 +1,6 @@
 class TangramCollectionSystem extends System {
     constructor(getPlayerEntity, getECS) {
-        super(['TangramPiece', 'Transform']);
+        super(['Collectible', 'Transform']);
         this.getPlayerEntity = getPlayerEntity;
         this.getECS = getECS;
     }
@@ -24,22 +24,30 @@ class TangramCollectionSystem extends System {
         const collectibles = this.getEntitiesWithComponents(entities);
 
         for (let entity of collectibles) {
-            const piece = entity.getComponent('TangramPiece');
+            const collectible = entity.getComponent('Collectible');
             const transform = entity.getComponent('Transform');
-            const def = getTangramPiece(piece.pieceId);
-            if (!def) continue;
 
-            const pieceBounds = {
+            const bounds = {
                 x: transform.x,
                 y: transform.y,
-                width: def.width,
-                height: def.height
+                width: transform.width,
+                height: transform.height
             };
 
-            if (rectanglesOverlap(playerBounds, pieceBounds)) {
-                inventory.add(piece.pieceId);
+            if (rectanglesOverlap(playerBounds, bounds)) {
+                const itemId = this.resolveInventoryId(entity, collectible);
+                if (itemId) {
+                    inventory.add(itemId);
+                }
                 ecs.destroyEntity(entity);
             }
         }
+    }
+
+    resolveInventoryId(entity, collectible) {
+        if (entity.hasComponent('TangramPiece')) {
+            return entity.getComponent('TangramPiece').pieceId;
+        }
+        return collectible.collectibleId;
     }
 }

@@ -52,6 +52,7 @@ class GameEngine {
 
         this.inputBuffer = new InputBuffer();
         this.inputSourceManager = new InputSourceManager(this.inputBuffer);
+        this.navigationGraph = new NavigationGraph();
         this.lastFrameTime = 0;
         this._loopBound = (time) => this.tick(time);
 
@@ -64,9 +65,14 @@ class GameEngine {
     }
 
     registerSystems() {
+        this.ecs.addUpdateSystem(new AISystem(
+            () => this.inputSourceManager.getSourceId(),
+            () => this.navigationGraph,
+            () => this.stateManager.getState()
+        ));
         this.ecs.addUpdateSystem(new InputSystem(
-            this.inputSourceManager,
-            () => this.getInputContext()
+            this.inputBuffer,
+            () => this.inputSourceManager.getSourceId()
         ));
         this.ecs.addUpdateSystem(new MovementSystem());
         this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
@@ -172,16 +178,9 @@ class GameEngine {
         if (this.controlSourceSelect) {
             this.controlSourceSelect.addEventListener('change', (e) => {
                 this.inputSourceManager.setSource(e.target.value);
+                resetAIStateOnEntities(this.ecs.entities);
             });
         }
-    }
-
-    getInputContext() {
-        return {
-            ecs: this.ecs,
-            playerEntity: this.ecs.playerEntity,
-            state: this.stateManager.getState()
-        };
     }
 
     updateRestartButton() {
@@ -331,6 +330,7 @@ class GameEngine {
         this.currentLevelName = levelData.name;
         this.setLevelHeading(levelData.name);
         this.setLevelStatus('');
+        resetAIStateOnEntities(this.ecs.entities);
         console.log(`Loaded level: ${levelData.name}`);
         this.enterPlaying();
     }
