@@ -1,5 +1,5 @@
 const AI_STUCK_SECONDS = 0.75;
-const AI_JUMP_EDGE_TOLERANCE = 24;
+const AI_EDGE_REACH = 20;
 
 class AISystem extends System {
     constructor(getSourceId, getNavigationGraph, getGameState, getGravity) {
@@ -15,13 +15,15 @@ class AISystem extends System {
             return;
         }
 
-        const platforms = this.getNavigationGraph().getPlatforms();
+        const navGraph = this.getNavigationGraph();
+        const platforms = navGraph.getPlatforms();
         const collectibles = getCollectibleTargets(entities);
         const agents = this.getEntitiesWithComponents(entities);
 
         for (const entity of agents) {
             const control = this.computeControl(
                 entity,
+                navGraph,
                 platforms,
                 collectibles,
                 deltaTime
@@ -33,16 +35,52 @@ class AISystem extends System {
     getNavLimits(entity) {
         const movement = entity.getComponent('Movement');
         const transform = entity.getComponent('Transform');
-        const limits = computeNavLimits(
+        return computeNavLimits(
             movement.jumpPower,
             this.getGravity(),
-            movement.speed
+            movement.speed,
+            transform.width
         );
-        limits.agentWidth = transform.width;
-        return limits;
     }
 
-    computeControl(entity, platforms, collectibles, deltaTime) {
+    ensureCollectiblePlan(state, navGraph, collectibles, currentPlatform, limits) {
+        const liveIds = new Set(collectibles.map((c) => c.entityId));
+
+        while (state.planIndex < state.collectiblePlan.length &&
+               !liveIds.has(state.collectiblePlan[state.planIndex])) {
+            state.planIndex++;
+        }
+
+        const needsPlan = state.collectiblePlan.length === 0 ||
+            state.planIndex >= state.collectiblePlan.length;
+
+        if (needsPlan && collectibles.length > 0 && currentPlatform) {
+            state.collectiblePlan = navGraph.buildCollectiblePlan(
+                collectibles,
+                currentPlatform,
+                limits
+            );
+            state.planIndex = 0;
+        }
+    }
+
+    getPlannedTarget(state, collectibles) {
+        if (state.planIndex >= state.collectiblePlan.length) {
+            return null;
+        }
+        const targetId = state.collectiblePlan[state.planIndex];
+        return collectibles.find((c) => c.entityId === targetId) ?? null;
+    }
+
+    skipUnreachableTarget(state) {
+        state.planIndex++;
+        state.targetEntityId = null;
+        state.path = [];
+        state.pathStep = 0;
+        state.transit = null;
+    }
+
+    computeControl(entity, navGraph, platforms, collectibles, deltaTime) {
         const transform = entity.getComponent('Transform');
         const physics = entity.getComponent('Physics');
         const state = entity.getComponent('AIState');
@@ -65,92 +103,80 @@ class AISystem extends System {
             state.currentPlatformId = groundedPlatform.id;
         }
 
-        let target = collectibles.find((c) => c.entityId === state.targetEntityId);
+        const currentPlatform = navGraph.getPlatformById(state.currentPlatformId)
+            ?? groundedPlatform;
+
+        if (!currentPlatform) {
+            return NEUTRAL_CONTROL_INPUT;
+        }
+
+        this.ensureCollectiblePlan(state, navGraph, collectibles, currentPlatform, limits);
+
+        let target = this.getPlannedTarget(state, collectibles);
         if (!target) {
-            target = this.pickTarget(transform, collectibles, platforms, limits);
+            return NEUTRAL_CONTROL_INPUT;
+        }
+
+        const goalPlatform = platformForTarget(target, platforms);
+        if (!goalPlatform) {
+            this.skipUnreachableTarget(state);
+            return NEUTRAL_CONTROL_INPUT;
+        }
+
+        const route = navGraph.findPath(currentPlatform, goalPlatform, limits);
+        if (!route) {
+            this.skipUnreachableTarget(state);
+            return NEUTRAL_CONTROL_INPUT;
+        }
+
+        if (state.targetEntityId !== target.entityId) {
             state.targetEntityId = target.entityId;
-            state.path = [];
+            state.path = route.platformIds;
+            state.pathStep = 0;
+            state.transit = null;
+        } else if (state.path.length === 0 ||
+                   state.path[state.path.length - 1] !== goalPlatform.id) {
+            state.path = route.platformIds;
             state.pathStep = 0;
             state.transit = null;
         }
 
-        const goalPlatform = platformForTarget(target, platforms);
         const goalX = target.centerX - agentWidth / 2;
-        const currentPlatform = platforms.find((p) => p.id === state.currentPlatformId)
-            ?? groundedPlatform;
 
-        if (goalPlatform && currentPlatform && goalPlatform.id === currentPlatform.id) {
-            state.path = [];
+        if (currentPlatform.id === goalPlatform.id) {
+            state.path = route.platformIds;
             state.transit = null;
-            return this.moveTowardX(transform, goalX, physics, false);
+            return this.moveTowardX(transform, goalX, physics, false, false);
         }
 
-        if (goalPlatform && currentPlatform) {
-            if (state.path.length === 0 || state.path[state.path.length - 1] !== goalPlatform.id) {
-                state.path = findPlatformPath(
-                    currentPlatform,
-                    goalPlatform,
-                    platforms,
-                    limits
-                ) ?? [];
-                state.transit = null;
-            }
-
-            if (physics.isGrounded && groundedPlatform) {
-                const onPathIndex = state.path.indexOf(groundedPlatform.id);
-                if (onPathIndex >= 0) {
-                    state.pathStep = onPathIndex;
-                }
+        if (physics.isGrounded && groundedPlatform) {
+            const onPathIndex = state.path.indexOf(groundedPlatform.id);
+            if (onPathIndex >= 0) {
+                state.pathStep = onPathIndex;
             }
         }
 
         if (state.path.length >= 2 && state.pathStep < state.path.length - 1) {
-            const control = this.followPath(transform, physics, state, platforms, agentWidth, limits);
+            const control = this.followPath(
+                transform,
+                physics,
+                state,
+                navGraph,
+                agentWidth,
+                limits
+            );
             if (control) {
                 return this.applyStuckRecovery(transform, physics, state, control, deltaTime);
             }
         }
 
-        const fallback = this.heuristicMove(transform, physics, target);
-        return this.applyStuckRecovery(transform, physics, state, fallback, deltaTime);
+        return NEUTRAL_CONTROL_INPUT;
     }
 
-    pickTarget(transform, collectibles, platforms, limits) {
-        const px = transform.x + transform.width / 2;
-        const py = transform.y + transform.height;
-
-        let best = collectibles[0];
-        let bestScore = Infinity;
-
-        for (const target of collectibles) {
-            const goalPlatform = platformForTarget(target, platforms);
-            let score = Math.hypot(target.centerX - px, target.y - py);
-
-            if (goalPlatform) {
-                const currentPlatform = platformForFeet(py, px, platforms);
-                const path = currentPlatform
-                    ? findPlatformPath(currentPlatform, goalPlatform, platforms, limits)
-                    : null;
-                if (path) {
-                    score = path.length * 1000 + score;
-                } else {
-                    score += 5000;
-                }
-            }
-
-            if (score < bestScore) {
-                bestScore = score;
-                best = target;
-            }
-        }
-
-        return best;
-    }
-
-    followPath(transform, physics, state, platforms, agentWidth, limits) {
+    followPath(transform, physics, state, navGraph, agentWidth, limits) {
         while (state.pathStep < state.path.length - 1) {
-            const from = platforms.find((p) => p.id === state.path[state.pathStep]);
-            const to = platforms.find((p) => p.id === state.path[state.pathStep + 1]);
+            const from = navGraph.getPlatformById(state.path[state.pathStep]);
+            const to = navGraph.getPlatformById(state.path[state.pathStep + 1]);
             if (!from || !to) {
                 state.path = [];
                 return null;
@@ -158,7 +184,7 @@ class AISystem extends System {
 
             const feetY = transform.y + transform.height;
             const centerX = transform.x + agentWidth / 2;
-            const onTarget = platformForFeet(feetY, centerX, platforms);
+            const onTarget = platformForFeet(feetY, centerX, navGraph.getPlatforms());
 
             if (physics.isGrounded && onTarget && onTarget.id === to.id) {
                 state.pathStep++;
@@ -168,73 +194,68 @@ class AISystem extends System {
             }
 
             if (!state.transit || state.transit.toPlatformId !== to.id) {
-                const action = getEdgeAction(from, to, platforms, limits);
+                const action = getEdgeAction(from, to, navGraph.getPlatforms(), limits);
                 state.transit = {
                     ...getTransition(from, to, agentWidth, action),
                     toPlatformId: to.id
                 };
             }
 
-            return this.executeTransit(transform, physics, state.transit, agentWidth);
+            return this.executeTransit(transform, physics, state.transit);
         }
 
         return null;
     }
 
-    executeTransit(transform, physics, transit, agentWidth) {
-        const distToTarget = Math.abs(
-            transform.x - transit.targetX
-        );
-        const atTargetX = distToTarget <= AI_JUMP_EDGE_TOLERANCE;
-        const move = transit.moveDir < 0
-            ? createControlInput(true, false, false)
-            : createControlInput(false, true, false);
+    executeTransit(transform, physics, transit) {
+        const dx = transit.targetX - transform.x;
+        const atEdge = Math.abs(dx) <= AI_EDGE_REACH;
+        const passedEdge = (transit.moveDir > 0 && transform.x >= transit.targetX) ||
+            (transit.moveDir < 0 && transform.x <= transit.targetX);
+
+        const moveLeft = transit.moveDir < 0;
+        const moveRight = transit.moveDir > 0;
+        const holdMove = createControlInput(moveLeft, moveRight, false);
 
         if (transit.action === 'jump') {
-            if (physics.isGrounded && atTargetX) {
-                return createControlInput(move.moveLeft, move.moveRight, true);
+            if (!physics.isGrounded) {
+                return holdMove;
             }
-            if (physics.isGrounded || physics.vy < 0) {
-                return move;
+            if (atEdge || passedEdge || transit.committed) {
+                transit.committed = true;
+                return createControlInput(moveLeft, moveRight, true);
             }
-            return move;
+            return this.moveTowardX(transform, transit.targetX, physics, false, true);
         }
 
         if (transit.action === 'fall') {
             if (!physics.isGrounded) {
-                return move;
+                return holdMove;
             }
-            if (atTargetX) {
-                return move;
+            if (atEdge || passedEdge || transit.committed) {
+                transit.committed = true;
+                return holdMove;
             }
-            return this.moveTowardX(transform, transit.targetX, physics, false);
+            return this.moveTowardX(transform, transit.targetX, physics, false, true);
         }
 
-        return this.moveTowardX(transform, transit.targetX, physics, false);
+        return this.moveTowardX(transform, transit.targetX, physics, false, false);
     }
 
-    heuristicMove(transform, physics, target) {
-        const goalX = target.centerX - transform.width / 2;
-        const dx = goalX - transform.x;
-        const dy = target.y - transform.y;
-        const move = this.moveTowardX(transform, goalX, physics, false);
-
-        if (physics.isGrounded && dy < -25 && Math.abs(dx) < 100) {
-            return createControlInput(move.moveLeft, move.moveRight, true);
-        }
-
-        return move;
-    }
-
-    moveTowardX(transform, targetX, physics, allowJump) {
+    moveTowardX(transform, targetX, physics, allowJump, noStop) {
         const dx = targetX - transform.x;
-        if (Math.abs(dx) <= NAV_POSITION_TOLERANCE) {
+        if (!noStop && Math.abs(dx) <= NAV_POSITION_TOLERANCE) {
             return NEUTRAL_CONTROL_INPUT;
         }
 
         const moveLeft = dx < 0;
         const moveRight = dx > 0;
         const jump = allowJump && physics.isGrounded;
+
+        if (noStop && Math.abs(dx) <= NAV_POSITION_TOLERANCE) {
+            return createControlInput(moveLeft || moveRight, moveRight || moveLeft, jump);
+        }
+
         return createControlInput(moveLeft, moveRight, jump);
     }
 
@@ -262,7 +283,9 @@ class AISystem extends System {
 
         if (state.stuckTimer >= AI_STUCK_SECONDS) {
             state.stuckTimer = 0;
-            state.transit = null;
+            if (state.transit) {
+                state.transit.committed = true;
+            }
             state.lastProgressX = x;
             state.lastProgressY = y;
             return createControlInput(control.moveLeft, control.moveRight, true);

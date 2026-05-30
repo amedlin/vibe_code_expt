@@ -4,6 +4,8 @@ class AIStateComponent {
     }
 
     reset() {
+        this.collectiblePlan = [];
+        this.planIndex = 0;
         this.targetEntityId = null;
         this.path = [];
         this.pathStep = 0;
