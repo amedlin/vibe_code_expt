@@ -12,6 +12,11 @@
             <input type="file" id="levelFile" accept=".txt" autofocus />
         </label>
         <button type="button" id="restartLevel" disabled>Restart level</button>
+        <label for="controlSource" class="control-source-label">Control</label>
+        <select id="controlSource">
+            <option value="player" selected>Player</option>
+            <option value="ai">AI</option>
+        </select>
         <span id="levelStatus">Select a level file to start</span>
     </div>
     <h1 id="levelHeading" class="level-heading is-hidden" aria-hidden="true"></h1>
@@ -22,6 +27,8 @@
     <!-- Core ECS and utilities -->
     <script src="ecs.js"></script>
     <script src="input-buffer.js"></script>
+    <script src="control-input.js"></script>
+    <script src="input-sources.js"></script>
     <script src="camera.js"></script>
     <script src="animation.js"></script>
     <script src="render.js"></script>

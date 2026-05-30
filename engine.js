@@ -9,6 +9,7 @@ class GameEngine {
         const levelStatus = document.getElementById(options.levelStatusId ?? 'levelStatus');
         const levelHeading = document.getElementById(options.levelHeadingId ?? 'levelHeading');
         const inventoryCanvas = document.getElementById(options.inventoryCanvasId ?? 'inventoryCanvas');
+        const controlSourceSelect = document.getElementById(options.controlSourceSelectId ?? 'controlSource');
 
         const width = options.width ?? 800;
         const height = options.height ?? 600;
@@ -27,7 +28,8 @@ class GameEngine {
             levelFileInput,
             restartLevelButton,
             levelStatus,
-            levelHeading
+            levelHeading,
+            controlSourceSelect
         });
     }
 
@@ -43,11 +45,13 @@ class GameEngine {
         this.restartLevelButton = options.restartLevelButton ?? null;
         this.levelStatus = options.levelStatus ?? null;
         this.levelHeading = options.levelHeading ?? null;
+        this.controlSourceSelect = options.controlSourceSelect ?? null;
         this.defaultLevelStatusText = options.defaultLevelStatusText ?? 'Select a level file to start';
         this.lastLevelFile = null;
         this.currentLevelName = null;
 
         this.inputBuffer = new InputBuffer();
+        this.inputSourceManager = new InputSourceManager(this.inputBuffer);
         this.lastFrameTime = 0;
         this._loopBound = (time) => this.tick(time);
 
@@ -60,7 +64,10 @@ class GameEngine {
     }
 
     registerSystems() {
-        this.ecs.addUpdateSystem(new InputSystem(this.inputBuffer));
+        this.ecs.addUpdateSystem(new InputSystem(
+            this.inputSourceManager,
+            () => this.getInputContext()
+        ));
         this.ecs.addUpdateSystem(new MovementSystem());
         this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
         this.ecs.addUpdateSystem(new PhysicsSystem([0, 2000]));
@@ -161,6 +168,20 @@ class GameEngine {
         if (this.restartLevelButton) {
             this.restartLevelButton.addEventListener('click', () => this.restartCurrentLevel());
         }
+
+        if (this.controlSourceSelect) {
+            this.controlSourceSelect.addEventListener('change', (e) => {
+                this.inputSourceManager.setSource(e.target.value);
+            });
+        }
+    }
+
+    getInputContext() {
+        return {
+            ecs: this.ecs,
+            playerEntity: this.ecs.playerEntity,
+            state: this.stateManager.getState()
+        };
     }
 
     updateRestartButton() {

@@ -59,6 +59,16 @@ body {
     cursor: not-allowed;
 }
 
+.control-source-label {
+    font-size: 12px;
+}
+
+#controlSource {
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
 #levelStatus {
     font-size: 12px;
     color: #aaa;
