@@ -53,6 +53,7 @@ class GameEngine {
         this.inputBuffer = new InputBuffer();
         this.inputSourceManager = new InputSourceManager(this.inputBuffer);
         this.navigationGraph = new NavigationGraph();
+        this.gravity = 2000;
         this.lastFrameTime = 0;
         this._loopBound = (time) => this.tick(time);
 
@@ -68,7 +69,8 @@ class GameEngine {
         this.ecs.addUpdateSystem(new AISystem(
             () => this.inputSourceManager.getSourceId(),
             () => this.navigationGraph,
-            () => this.stateManager.getState()
+            () => this.stateManager.getState(),
+            () => this.gravity
         ));
         this.ecs.addUpdateSystem(new InputSystem(
             this.inputBuffer,
@@ -76,7 +78,7 @@ class GameEngine {
         ));
         this.ecs.addUpdateSystem(new MovementSystem());
         this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
-        this.ecs.addUpdateSystem(new PhysicsSystem([0, 2000]));
+        this.ecs.addUpdateSystem(new PhysicsSystem([0, this.gravity]));
         this.ecs.addUpdateSystem(new AnimationSystem());
         this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
         this.ecs.addUpdateSystem(new TangramCollectionSystem(

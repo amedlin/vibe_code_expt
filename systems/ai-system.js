@@ -1,11 +1,13 @@
 const AI_STUCK_SECONDS = 0.75;
+const AI_JUMP_EDGE_TOLERANCE = 24;
 
 class AISystem extends System {
-    constructor(getSourceId, getNavigationGraph, getGameState) {
-        super(['AIAgent', 'AIState', 'Input', 'Transform', 'Physics']);
+    constructor(getSourceId, getNavigationGraph, getGameState, getGravity) {
+        super(['AIAgent', 'AIState', 'Input', 'Transform', 'Physics', 'Movement']);
         this.getSourceId = getSourceId;
         this.getNavigationGraph = getNavigationGraph;
         this.getGameState = getGameState;
+        this.getGravity = getGravity;
     }
 
     update(deltaTime, entities) {
@@ -28,10 +30,23 @@ class AISystem extends System {
         }
     }
 
+    getNavLimits(entity) {
+        const movement = entity.getComponent('Movement');
+        const transform = entity.getComponent('Transform');
+        const limits = computeNavLimits(
+            movement.jumpPower,
+            this.getGravity(),
+            movement.speed
+        );
+        limits.agentWidth = transform.width;
+        return limits;
+    }
+
     computeControl(entity, platforms, collectibles, deltaTime) {
         const transform = entity.getComponent('Transform');
         const physics = entity.getComponent('Physics');
         const state = entity.getComponent('AIState');
+        const limits = this.getNavLimits(entity);
 
         if (collectibles.length === 0) {
             state.reset();
@@ -42,16 +57,17 @@ class AISystem extends System {
         const centerX = transform.x + agentWidth / 2;
         const feetY = transform.y + transform.height;
 
-        if (physics.isGrounded) {
-            const platform = platformForFeet(feetY, centerX, platforms);
-            if (platform) {
-                state.currentPlatformId = platform.id;
-            }
+        const groundedPlatform = physics.isGrounded
+            ? platformForFeet(feetY, centerX, platforms)
+            : null;
+
+        if (groundedPlatform) {
+            state.currentPlatformId = groundedPlatform.id;
         }
 
         let target = collectibles.find((c) => c.entityId === state.targetEntityId);
         if (!target) {
-            target = this.pickTarget(transform, collectibles, platforms, agentWidth);
+            target = this.pickTarget(transform, collectibles, platforms, limits);
             state.targetEntityId = target.entityId;
             state.path = [];
             state.pathStep = 0;
@@ -61,7 +77,7 @@ class AISystem extends System {
         const goalPlatform = platformForTarget(target, platforms);
         const goalX = target.centerX - agentWidth / 2;
         const currentPlatform = platforms.find((p) => p.id === state.currentPlatformId)
-            ?? platformForFeet(feetY, centerX, platforms);
+            ?? groundedPlatform;
 
         if (goalPlatform && currentPlatform && goalPlatform.id === currentPlatform.id) {
             state.path = [];
@@ -75,15 +91,21 @@ class AISystem extends System {
                     currentPlatform,
                     goalPlatform,
                     platforms,
-                    agentWidth
+                    limits
                 ) ?? [];
-                state.pathStep = 0;
                 state.transit = null;
+            }
+
+            if (physics.isGrounded && groundedPlatform) {
+                const onPathIndex = state.path.indexOf(groundedPlatform.id);
+                if (onPathIndex >= 0) {
+                    state.pathStep = onPathIndex;
+                }
             }
         }
 
-        if (state.path.length >= 2) {
-            const control = this.followPath(entity, transform, physics, state, platforms, agentWidth);
+        if (state.path.length >= 2 && state.pathStep < state.path.length - 1) {
+            const control = this.followPath(transform, physics, state, platforms, agentWidth, limits);
             if (control) {
                 return this.applyStuckRecovery(transform, physics, state, control, deltaTime);
             }
@@ -93,7 +115,7 @@ class AISystem extends System {
         return this.applyStuckRecovery(transform, physics, state, fallback, deltaTime);
     }
 
-    pickTarget(transform, collectibles, platforms, agentWidth) {
+    pickTarget(transform, collectibles, platforms, limits) {
         const px = transform.x + transform.width / 2;
         const py = transform.y + transform.height;
 
@@ -107,7 +129,7 @@ class AISystem extends System {
             if (goalPlatform) {
                 const currentPlatform = platformForFeet(py, px, platforms);
                 const path = currentPlatform
-                    ? findPlatformPath(currentPlatform, goalPlatform, platforms, agentWidth)
+                    ? findPlatformPath(currentPlatform, goalPlatform, platforms, limits)
                     : null;
                 if (path) {
                     score = path.length * 1000 + score;
@@ -125,7 +147,7 @@ class AISystem extends System {
         return best;
     }
 
-    followPath(entity, transform, physics, state, platforms, agentWidth) {
+    followPath(transform, physics, state, platforms, agentWidth, limits) {
         while (state.pathStep < state.path.length - 1) {
             const from = platforms.find((p) => p.id === state.path[state.pathStep]);
             const to = platforms.find((p) => p.id === state.path[state.pathStep + 1]);
@@ -145,8 +167,12 @@ class AISystem extends System {
                 continue;
             }
 
-            if (!state.transit) {
-                state.transit = getTransition(from, to, agentWidth);
+            if (!state.transit || state.transit.toPlatformId !== to.id) {
+                const action = getEdgeAction(from, to, platforms, limits);
+                state.transit = {
+                    ...getTransition(from, to, agentWidth, action),
+                    toPlatformId: to.id
+                };
             }
 
             return this.executeTransit(transform, physics, state.transit, agentWidth);
@@ -156,25 +182,30 @@ class AISystem extends System {
     }
 
     executeTransit(transform, physics, transit, agentWidth) {
-        const atTargetX = Math.abs(
-            (transform.x + agentWidth / 2) - (transit.targetX + agentWidth / 2)
-        ) <= NAV_POSITION_TOLERANCE;
+        const distToTarget = Math.abs(
+            transform.x - transit.targetX
+        );
+        const atTargetX = distToTarget <= AI_JUMP_EDGE_TOLERANCE;
+        const move = transit.moveDir < 0
+            ? createControlInput(true, false, false)
+            : createControlInput(false, true, false);
 
         if (transit.action === 'jump') {
-            const move = transit.moveDir < 0
-                ? createControlInput(true, false, false)
-                : createControlInput(false, true, false);
             if (physics.isGrounded && atTargetX) {
                 return createControlInput(move.moveLeft, move.moveRight, true);
+            }
+            if (physics.isGrounded || physics.vy < 0) {
+                return move;
             }
             return move;
         }
 
         if (transit.action === 'fall') {
-            if (physics.isGrounded && atTargetX) {
-                return transit.moveDir < 0
-                    ? createControlInput(true, false, false)
-                    : createControlInput(false, true, false);
+            if (!physics.isGrounded) {
+                return move;
+            }
+            if (atTargetX) {
+                return move;
             }
             return this.moveTowardX(transform, transit.targetX, physics, false);
         }
@@ -188,16 +219,8 @@ class AISystem extends System {
         const dy = target.y - transform.y;
         const move = this.moveTowardX(transform, goalX, physics, false);
 
-        if (physics.isGrounded && dy < -25 && Math.abs(dx) < 80) {
+        if (physics.isGrounded && dy < -25 && Math.abs(dx) < 100) {
             return createControlInput(move.moveLeft, move.moveRight, true);
-        }
-
-        if (physics.isGrounded && dy > 40 && Math.abs(dx) < 20) {
-            return createControlInput(
-                physics.vx > 0,
-                physics.vx < 0,
-                false
-            );
         }
 
         return move;
@@ -240,7 +263,6 @@ class AISystem extends System {
         if (state.stuckTimer >= AI_STUCK_SECONDS) {
             state.stuckTimer = 0;
             state.transit = null;
-            state.path = [];
             state.lastProgressX = x;
             state.lastProgressY = y;
             return createControlInput(control.moveLeft, control.moveRight, true);
