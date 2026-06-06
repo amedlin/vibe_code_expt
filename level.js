@@ -1,8 +1,12 @@
 // Level class for managing level data and platform definitions
 class Level {
-    constructor(name, themeId, platforms = [], tangramPieces = [], decorations = []) {
+    constructor(name, themeId, seed, platforms = [], tangramPieces = [], decorations = []) {
         this.name = name;
         this.themeId = themeId ?? DEFAULT_THEME_ID;
+        // Optional explicit background seed. When null, LevelManager
+        // derives one from the level name so backgrounds stay deterministic
+        // without needing an author-supplied value.
+        this.seed = seed ?? null;
         this.platforms = platforms;
         this.tangramPieces = tangramPieces;
         this.decorations = decorations;
@@ -15,6 +19,7 @@ class Level {
         const decorations = [];
         let levelName = 'Unnamed Level';
         let themeId = DEFAULT_THEME_ID;
+        let seed = null;
 
         for (let line of lines) {
             line = line.trim();
@@ -29,6 +34,14 @@ class Level {
                     const raw = line.replace(/^#\s*Theme\s*[-:]?\s*/i, '').trim();
                     if (raw) {
                         themeId = raw;
+                    }
+                } else if (/^#\s*Seed\b/i.test(line)) {
+                    const raw = line.replace(/^#\s*Seed\s*[-:]?\s*/i, '').trim();
+                    const parsed = parseInt(raw, 10);
+                    if (Number.isFinite(parsed)) {
+                        seed = parsed;
+                    } else if (raw) {
+                        console.warn(`Ignoring non-integer seed '${raw}' in level header.`);
                     }
                 }
                 continue;
@@ -71,6 +84,6 @@ class Level {
             }
         }
 
-        return new Level(levelName, themeId, platforms, tangramPieces, decorations);
+        return new Level(levelName, themeId, seed, platforms, tangramPieces, decorations);
     }
 }

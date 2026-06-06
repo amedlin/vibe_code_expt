@@ -74,6 +74,10 @@ class GameEngine {
         // gets injected at construction. Null until a level is loaded.
         this.currentTheme = null;
         this.levelEntity = null;
+        // Seed driving the theme's procedural background. Populated by
+        // LevelManager; ensureStaticLayer wraps it in a SeededRng so the
+        // generator produces identical output every reload.
+        this.backgroundSeed = 0;
 
         this.ecs = new ECS();
         this.stateManager = new StateManager();
@@ -143,6 +147,7 @@ class GameEngine {
         this.currentLevelName = null;
         this.currentTheme = null;
         this.levelEntity = null;
+        this.backgroundSeed = 0;
         this.updateRestartButton();
         this.setLevelHeading(null);
         this.clearInventoryPanel();
@@ -352,12 +357,15 @@ class GameEngine {
             this.staticLayerCanvas.height = this.canvasHeight;
         }
         const sctx = this.staticLayerCtx;
-        // 1. Backmost: theme-provided procedural background. Falls back to
-        //    a plain sky fill if no theme is active yet (e.g. before the
-        //    first level loads).
+        // 1. Backmost: theme-provided procedural background. The seeded RNG
+        //    is built fresh every regeneration so the output is purely a
+        //    function of (theme, seed) and stays identical across reloads
+        //    and restarts. Falls back to a plain sky fill if no theme is
+        //    active yet (e.g. before the first level loads).
         const theme = this.currentTheme;
         if (theme && typeof theme.generateBackground === 'function') {
-            theme.generateBackground(sctx, this.canvasWidth, this.canvasHeight);
+            const rng = new SeededRng(this.backgroundSeed >>> 0);
+            theme.generateBackground(sctx, this.canvasWidth, this.canvasHeight, rng);
         } else {
             sctx.fillStyle = '#87ceeb';
             sctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);

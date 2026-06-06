@@ -41,6 +41,10 @@ class LevelManager {
         // theme that isn't registered.
         const theme = this.resolveTheme(levelData.themeId);
         this.engine.currentTheme = theme;
+        // Background seed: explicit '# Seed:' header wins; otherwise derive
+        // a deterministic seed from the level name so the same level looks
+        // identical every load.
+        this.engine.backgroundSeed = this.resolveSeed(levelData, theme);
         this.createLevelEntity(theme);
 
         // Create platform entities from levelData.platforms
@@ -101,6 +105,14 @@ class LevelManager {
             );
         }
         return fallback;
+    }
+
+    resolveSeed(levelData, theme) {
+        if (levelData.seed != null && Number.isFinite(levelData.seed)) {
+            return levelData.seed >>> 0;
+        }
+        const basis = levelData.name || (theme && theme.id) || 'default';
+        return hashStringToSeed(basis);
     }
 
     createLevelEntity(theme) {

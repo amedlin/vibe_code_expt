@@ -22,13 +22,10 @@
             platformEdge:   '#5d4e37'
         },
 
-        // STUB: paints flat sky color across the back canvas. A future
-        // implementation will use the seeded `rng` to lay down distant
-        // hills, parallax tree silhouettes, sun shaft, etc.
-        generateBackground(ctx, width, height /* , rng */) {
-            ctx.fillStyle = this.palette.sky;
-            ctx.fillRect(0, 0, width, height);
-            // TODO: parallax silhouettes, distant canopy, light shafts.
+        // Delegated to the dedicated forest background module so the
+        // theme file stays focused on palette + role->sprite mapping.
+        generateBackground(ctx, width, height, rng) {
+            generateForestBackground(ctx, width, height, rng, this.palette);
         },
 
         drawPlatform(ctx, x, y, w, h) {
