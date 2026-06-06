@@ -56,11 +56,30 @@ class GameEngine {
         this.gravity = 2000;
         this.lastFrameTime = 0;
         this._loopBound = (time) => this.tick(time);
+        this._frameScheduled = false;
+        this._inventoryDirty = true;
+        this._staticLayerDirty = true;
+        this._lastInventoryCount = -1;
+
+        // Offscreen canvas for the static back layer (sky + platforms + back
+        // decorations). Rebuilt only when the entity set changes. Safe while
+        // the camera is stationary; if camera scrolling is added later, this
+        // canvas would need to be larger than the viewport or invalidated
+        // whenever the camera moves.
+        this.staticLayerCanvas = document.createElement('canvas');
+        this.staticLayerCtx = this.staticLayerCanvas.getContext('2d');
 
         this.ecs = new ECS();
         this.stateManager = new StateManager();
         this.levelManager = new LevelManager(this);
         this.camera = new Camera(0, 0, this.canvasWidth, this.canvasHeight);
+
+        // Any change to the entity set invalidates the cached static layer
+        // and the inventory snapshot.
+        this.ecs.onEntitySetChanged(() => {
+            this._staticLayerDirty = true;
+            this._inventoryDirty = true;
+        });
 
         this.registerSystems();
     }
@@ -86,8 +105,11 @@ class GameEngine {
         ));
         this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
 
-        this.ecs.addRenderSystem(new RenderSystem(this.camera));
-        this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'back'));
+        // Static back layer — never changes between level loads.
+        this.ecs.addStaticRenderSystem(new RenderSystem(this.camera));
+        this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back'));
+
+        // Dynamic layer — re-rendered each frame while playing.
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front'));
@@ -100,6 +122,11 @@ class GameEngine {
     }
 
     // --- State transitions (single entry points) ---
+    //
+    // Each transition wakes the loop via requestFrame() so the new state is
+    // drawn at least once. Continuous frames are only scheduled while in
+    // states with `updatesWorld: true` — idle states sleep until input or
+    // another state change wakes them.
 
     enterLevelSelect() {
         this.ecs.clearEntities();
@@ -113,21 +140,29 @@ class GameEngine {
             this.levelStatus.textContent = this.defaultLevelStatusText;
         }
         this.stateManager.setState('levelSelect');
+        this.requestFrame();
     }
 
     enterPlaying() {
         this.stateManager.setState('playing');
+        // Drop any stale dt accumulated while the loop was sleeping in an
+        // idle state, so the first physics frame uses a clean delta.
+        this.resetFrameClock();
+        this.requestFrame();
     }
 
     pause() {
         if (this.stateManager.is('playing')) {
             this.stateManager.setState('paused');
+            this.requestFrame();
         }
     }
 
     resume() {
         if (this.stateManager.is('paused')) {
             this.stateManager.setState('playing');
+            this.resetFrameClock();
+            this.requestFrame();
         }
     }
 
@@ -136,6 +171,7 @@ class GameEngine {
             return;
         }
         this.stateManager.setState('gameOver');
+        this.requestFrame();
     }
 
     restart() {
@@ -152,6 +188,11 @@ class GameEngine {
     start() {
         this.attachListeners();
         this.enterLevelSelect();
+    }
+
+    requestFrame() {
+        if (this._frameScheduled) return;
+        this._frameScheduled = true;
         requestAnimationFrame(this._loopBound);
     }
 
@@ -159,12 +200,12 @@ class GameEngine {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
         window.addEventListener('keyup', (e) => this.onKeyUp(e));
         window.addEventListener('blur', () => this.onAppHidden());
-        window.addEventListener('focus', () => this.resetFrameClock());
+        window.addEventListener('focus', () => this.onAppVisible());
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 this.onAppHidden();
             } else {
-                this.resetFrameClock();
+                this.onAppVisible();
             }
         });
 
@@ -197,6 +238,15 @@ class GameEngine {
     onAppHidden() {
         this.inputBuffer.keys = {};
         this.resetFrameClock();
+    }
+
+    onAppVisible() {
+        this.resetFrameClock();
+        // When the tab regains focus and we're mid-play, restart the loop.
+        const config = this.stateManager.getConfig();
+        if (config.updatesWorld) {
+            this.requestFrame();
+        }
     }
 
     resetFrameClock() {
@@ -235,9 +285,11 @@ class GameEngine {
     }
 
     tick(currentTime) {
+        this._frameScheduled = false;
+
         if (this.lastFrameTime === 0) {
             this.lastFrameTime = currentTime;
-            requestAnimationFrame(this._loopBound);
+            this.requestFrame();
             return;
         }
 
@@ -259,12 +311,17 @@ class GameEngine {
             GAME_STATE_OVERLAYS[config.overlay](this.ctx, this.canvasWidth, this.canvasHeight);
         }
 
-        requestAnimationFrame(this._loopBound);
+        // Only keep spinning while the world is actively updating. Idle
+        // states (paused, levelSelect, gameOver) render once on entry and
+        // then sleep until something explicitly calls requestFrame().
+        if (config.updatesWorld) {
+            this.requestFrame();
+        }
     }
 
     renderWorld(showDebugHud) {
-        this.ctx.fillStyle = '#87ceeb';
-        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.ensureStaticLayer();
+        this.ctx.drawImage(this.staticLayerCanvas, 0, 0);
 
         this.ecs.render(this.ctx);
 
@@ -275,17 +332,43 @@ class GameEngine {
         this.renderInventory();
     }
 
+    ensureStaticLayer() {
+        if (!this._staticLayerDirty) {
+            return;
+        }
+        if (this.staticLayerCanvas.width !== this.canvasWidth ||
+            this.staticLayerCanvas.height !== this.canvasHeight) {
+            this.staticLayerCanvas.width = this.canvasWidth;
+            this.staticLayerCanvas.height = this.canvasHeight;
+        }
+        const sctx = this.staticLayerCtx;
+        sctx.fillStyle = '#87ceeb';
+        sctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.ecs.renderStatic(sctx);
+        this._staticLayerDirty = false;
+    }
+
     renderInventory() {
         if (!this.inventoryCtx || !this.inventoryRenderSystem) {
             return;
         }
+        const player = this.ecs.playerEntity;
+        const inventory = player ? player.getComponent('Inventory') : null;
+        const count = inventory ? inventory.collected.length : -1;
+        if (!this._inventoryDirty && count === this._lastInventoryCount) {
+            return;
+        }
         this.inventoryRenderSystem.update(0, this.ecs.entities, this.inventoryCtx);
+        this._lastInventoryCount = count;
+        this._inventoryDirty = false;
     }
 
     clearInventoryPanel() {
         if (this.inventoryCtx && this.inventoryRenderSystem) {
             this.inventoryRenderSystem.clear(this.inventoryCtx);
         }
+        this._lastInventoryCount = -1;
+        this._inventoryDirty = true;
     }
 
     renderDebugInfo() {

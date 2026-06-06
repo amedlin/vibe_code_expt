@@ -31,10 +31,13 @@ class Entity {
     }
 }
 
-// System - logic that operates on entities with specific components
+// System - logic that operates on entities with specific components.
+// Filtered entity list is cached and invalidated only when the ECS entity
+// set changes, so we don't re-filter every frame.
 class System {
     constructor(requiredComponents = []) {
         this.requiredComponents = requiredComponents;
+        this._cachedEntities = null;
     }
 
     update(deltaTime, entities) {
@@ -42,12 +45,21 @@ class System {
     }
 
     getEntitiesWithComponents(entities) {
-        if (this.requiredComponents.length === 0) {
-            return entities;
+        if (this._cachedEntities !== null) {
+            return this._cachedEntities;
         }
-        return entities.filter(entity =>
-            this.requiredComponents.every(comp => entity.hasComponent(comp))
+        if (this.requiredComponents.length === 0) {
+            this._cachedEntities = entities.slice();
+            return this._cachedEntities;
+        }
+        this._cachedEntities = entities.filter((entity) =>
+            this.requiredComponents.every((comp) => entity.hasComponent(comp))
         );
+        return this._cachedEntities;
+    }
+
+    invalidateEntityCache() {
+        this._cachedEntities = null;
     }
 }
 
@@ -57,12 +69,34 @@ class ECS {
         this.entities = [];
         this.updateSystems = [];
         this.renderSystems = [];
+        this.staticRenderSystems = [];
         this.nextEntityId = 0;
+        this.entitySetListeners = [];
+    }
+
+    onEntitySetChanged(listener) {
+        this.entitySetListeners.push(listener);
+    }
+
+    _notifyEntitySetChanged() {
+        for (const system of this.updateSystems) {
+            system.invalidateEntityCache();
+        }
+        for (const system of this.renderSystems) {
+            system.invalidateEntityCache();
+        }
+        for (const system of this.staticRenderSystems) {
+            system.invalidateEntityCache();
+        }
+        for (const listener of this.entitySetListeners) {
+            listener();
+        }
     }
 
     createEntity() {
         const entity = new Entity(this.nextEntityId++);
         this.entities.push(entity);
+        this._notifyEntitySetChanged();
         return entity;
     }
 
@@ -70,6 +104,7 @@ class ECS {
         const idx = this.entities.indexOf(entity);
         if (idx !== -1) {
             this.entities.splice(idx, 1);
+            this._notifyEntitySetChanged();
         }
     }
 
@@ -87,6 +122,14 @@ class ECS {
         return this;
     }
 
+    // Render systems whose output never changes during gameplay (sky,
+    // platforms, back decorations). The engine renders these once into an
+    // offscreen canvas at level load and just blits the result each frame.
+    addStaticRenderSystem(system) {
+        this.staticRenderSystems.push(system);
+        return this;
+    }
+
     update(deltaTime) {
         for (let system of this.updateSystems) {
             system.update(deltaTime, this.entities);
@@ -99,23 +142,31 @@ class ECS {
         }
     }
 
+    renderStatic(ctx) {
+        for (let system of this.staticRenderSystems) {
+            system.update(0, this.entities, ctx);
+        }
+    }
+
     clearEntities() {
         this.entities = [];
         this.playerEntity = null;
         this.nextEntityId = 0;
+        this._notifyEntitySetChanged();
     }
 
     clear() {
         this.clearEntities();
         this.updateSystems = [];
         this.renderSystems = [];
+        this.staticRenderSystems = [];
     }
 
     getStats() {
         return {
             entityCount: this.entities.length,
             updateSystemCount: this.updateSystems.length,
-            renderSystemCount: this.renderSystems.length
+            renderSystemCount: this.renderSystems.length + this.staticRenderSystems.length
         };
     }
 }
