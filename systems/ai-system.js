@@ -117,14 +117,16 @@ class AISystem extends System {
 
         if (state.targetEntityId !== target.entityId) {
             state.targetEntityId = target.entityId;
-            state.route = route;
-            state.pathStep = 0;
             state.transit = null;
-        } else if (!state.route ||
-                   state.route.platformIds[state.route.platformIds.length - 1] !== goalPlatform.id) {
-            state.route = route;
-            state.pathStep = 0;
-            state.transit = null;
+        }
+
+        // Always use the freshest route from current position. If we land
+        // on an unexpected platform (overshoot, undershoot, mid-air bump),
+        // pathfinding from there gives a new viable route via waypoints.
+        state.route = route;
+        if (groundedPlatform) {
+            const onPathIndex = route.platformIds.indexOf(groundedPlatform.id);
+            state.pathStep = onPathIndex >= 0 ? onPathIndex : 0;
         }
 
         const goalX = clamp(
@@ -136,13 +138,6 @@ class AISystem extends System {
         if (currentPlatform.id === goalPlatform.id) {
             state.transit = null;
             return this.moveTowardX(transform, goalX, physics, false, false);
-        }
-
-        if (physics.isGrounded && groundedPlatform && state.route) {
-            const onPathIndex = state.route.platformIds.indexOf(groundedPlatform.id);
-            if (onPathIndex >= 0) {
-                state.pathStep = onPathIndex;
-            }
         }
 
         if (state.route && state.pathStep < state.route.steps.length) {
@@ -176,6 +171,7 @@ class AISystem extends System {
                     targetX: step.approachX,
                     moveDir: step.moveDir,
                     jumpAtEdge: step.jumpAtEdge ?? false,
+                    requiresMomentum: step.requiresMomentum ?? false,
                     toPlatformId: to,
                     committed: false
                 };
@@ -212,29 +208,67 @@ class AISystem extends System {
             return this.executeFallTransit(transform, physics, transit);
         }
 
-        const dx = transit.targetX - transform.x;
-        const moveDir = Math.abs(dx) > AI_EDGE_REACH
-            ? (dx > 0 ? 1 : -1)
-            : transit.moveDir;
-        const atEdge = Math.abs(dx) <= AI_EDGE_REACH;
-        const passedEdge = (moveDir > 0 && transform.x >= transit.targetX) ||
-            (moveDir < 0 && transform.x <= transit.targetX);
-
-        const moveLeft = moveDir < 0;
-        const moveRight = moveDir > 0;
-        const holdMove = createControlInput(moveLeft, moveRight, false);
-
         if (transit.action === 'jump') {
-            if (!physics.isGrounded) {
-                return holdMove;
-            }
-            if (atEdge || passedEdge || transit.committed) {
-                transit.committed = true;
-                return createControlInput(moveLeft, moveRight, true);
-            }
-            return this.moveTowardX(transform, transit.targetX, physics, false, true);
+            return this.executeJumpTransit(transform, physics, transit);
         }
 
+        return this.moveTowardX(transform, transit.targetX, physics, false, false);
+    }
+
+    executeJumpTransit(transform, physics, transit) {
+        const navGraph = this.getNavigationGraph();
+        const dest = navGraph.getPlatformById(transit.toPlatformId);
+        const agentWidth = transform.width;
+        const agentLeft = transform.x;
+        const agentRight = transform.x + agentWidth;
+
+        if (!physics.isGrounded) {
+            // In the air: steer toward the destination's horizontal bounds.
+            // Once we're horizontally above the platform, go neutral so we
+            // drop straight down and stop drifting past it.
+            if (dest) {
+                if (agentRight < dest.left + 2) {
+                    return createControlInput(false, true, false);
+                }
+                if (agentLeft > dest.right - 2) {
+                    return createControlInput(true, false, false);
+                }
+                return NEUTRAL_CONTROL_INPUT;
+            }
+            return createControlInput(transit.moveDir < 0, transit.moveDir > 0, false);
+        }
+
+        const dx = transit.targetX - transform.x;
+        const approachDir = transit.moveDir;
+        const reachedApproach = (approachDir > 0 && transform.x >= transit.targetX) ||
+            (approachDir < 0 && transform.x <= transit.targetX) ||
+            Math.abs(dx) <= AI_EDGE_REACH;
+
+        if (transit.committed || reachedApproach) {
+            transit.committed = true;
+
+            if (transit.requiresMomentum) {
+                // Gap jump: commit at full speed toward destination.
+                const destDir = dest && dest.centerX > transform.x + agentWidth / 2
+                    ? 1
+                    : -1;
+                return createControlInput(destDir < 0, destDir > 0, true);
+            }
+
+            // Overlap jump: wait for any walking momentum to bleed off,
+            // then jump straight up so we land on the platform above.
+            if (Math.abs(physics.vx) > 30) {
+                return NEUTRAL_CONTROL_INPUT;
+            }
+            return createControlInput(false, false, true);
+        }
+
+        // Approach phase: walk toward the launch point. Gap jumps need full
+        // momentum, so do not slow down near the target.
+        if (transit.requiresMomentum) {
+            const walkDir = dx > 0 ? 1 : -1;
+            return createControlInput(walkDir < 0, walkDir > 0, false);
+        }
         return this.moveTowardX(transform, transit.targetX, physics, false, false);
     }
 

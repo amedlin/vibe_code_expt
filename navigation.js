@@ -104,6 +104,7 @@ class NavigationGraph {
 
         let approachX;
         let moveDir;
+        let requiresMomentum = false;
         if (action === 'fall') {
             const approach = this.computeFallApproach(from, to, agentWidth);
             approachX = approach.approachX;
@@ -111,6 +112,11 @@ class NavigationGraph {
         } else {
             approachX = this.computeApproachX(from, to, agentWidth, action);
             moveDir = to.centerX >= approachX + agentWidth / 2 ? 1 : -1;
+            if (action === 'jump') {
+                const overlapLeft = Math.max(from.left, to.left);
+                const overlapRight = Math.min(from.right, to.right);
+                requiresMomentum = overlapRight - overlapLeft < agentWidth;
+            }
         }
 
         return {
@@ -119,6 +125,7 @@ class NavigationGraph {
             approachX,
             moveDir,
             jumpAtEdge,
+            requiresMomentum,
             heightDiff
         };
     }
@@ -238,7 +245,8 @@ class NavigationGraph {
                 action: edge.action,
                 approachX: edge.approachX,
                 moveDir: edge.moveDir,
-                jumpAtEdge: edge.jumpAtEdge ?? false
+                jumpAtEdge: edge.jumpAtEdge ?? false,
+                requiresMomentum: edge.requiresMomentum ?? false
             });
         }
         return { platformIds, steps };
