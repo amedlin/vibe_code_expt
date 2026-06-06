@@ -41,7 +41,7 @@ class CollectibleCollectionSystem extends System {
 
             if (rectanglesOverlap(playerBounds, bounds)) {
                 inventory.add(collectible.collectibleId);
-                ecs.destroyEntity(entity);
+                ecs.destroyEntity(entity, { affectsStaticLayer: false });
             }
         }
     }

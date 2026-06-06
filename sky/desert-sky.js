@@ -353,7 +353,7 @@ function _insectBehavior(transform, state, dt, ctx) {
     }
 
     if (state.mode === 'swarm') {
-        const leader = _findEntityById(ctx.siblings, state.leaderId);
+        const leader = _findEntityById(ctx.liveEntities ?? ctx.siblings, state.leaderId);
         if (leader && leader.getComponent('Transform')) {
             _insectSwarmBehavior(transform, state, dt, ctx, leader);
             return;
@@ -367,8 +367,6 @@ function _insectBehavior(transform, state, dt, ctx) {
         state.wanderAngle = null;
         state.mode        = 'hover';
         state.hoverTimer  = randomRange(INSECT_MIN_HOVER, INSECT_MAX_HOVER);
-        state.vx = 0;
-        state.vy = 0;
     }
 
     // dart / hover. Locked leaders skip the swarm-join check.

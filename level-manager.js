@@ -1,13 +1,18 @@
 class LevelManager {
     constructor(engine) {
         this.engine = engine;
+        this._loadGeneration = 0;
     }
 
     async loadLevel(levelFile) {
+        const generation = ++this._loadGeneration;
         console.log('Starting level load:', levelFile.name);
         const reader = new FileReader();
         return new Promise((resolve, reject) => {
             reader.onload = (event) => {
+                if (generation !== this._loadGeneration) {
+                    return;
+                }
                 try {
                     console.log('File read successfully');
                     const text = event.target.result;
@@ -23,6 +28,9 @@ class LevelManager {
                 }
             };
             reader.onerror = () => {
+                if (generation !== this._loadGeneration) {
+                    return;
+                }
                 console.error('FileReader error');
                 reject(new Error('Failed to read file'));
             };
@@ -32,6 +40,9 @@ class LevelManager {
 
     spawnLevel(levelData) {
         console.log('Spawning level:', levelData);
+        if (this.engine.skySpawnSystem) {
+            this.engine.skySpawnSystem.resetPreWarm();
+        }
         this.engine.ecs.clearEntities();
         console.log('ECS entities cleared');
 
@@ -171,7 +182,7 @@ class LevelManager {
     }
 
     createPill(def) {
-        const entity = this.engine.ecs.createEntity();
+        const entity = this.engine.ecs.createEntity({ affectsStaticLayer: false });
         entity.addComponent('Transform', new TransformComponent(
             def.x,
             def.y,

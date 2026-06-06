@@ -19,6 +19,12 @@ class SkySpawnSystem extends System {
         this._warmedTheme  = null;
     }
 
+    // Called when a level is (re)spawned so pre-warm runs again even if
+    // the theme object is the same registry instance as the prior load.
+    resetPreWarm() {
+        this._warmedTheme = null;
+    }
+
     update(deltaTime, entities) {
         const theme = this.themeProvider();
         if (!theme || !theme.skyElements) {

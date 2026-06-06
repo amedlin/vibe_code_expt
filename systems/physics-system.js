@@ -47,10 +47,10 @@ class PhysicsSystem extends System {
             physics.isGrounded = false;
         }
 
-        this.checkCollisions();
+        this.checkCollisions(deltaTime);
     }
 
-    checkCollisions() {
+    checkCollisions(deltaTime) {
         // Only check dynamic against static + other dynamic. Static-vs-static
         // pairs can never produce a real collision and just burn CPU.
         for (let i = 0; i < this._dynamicBodies.length; i++) {
@@ -58,14 +58,14 @@ class PhysicsSystem extends System {
             for (const b of this._staticBodies) {
                 if (!this._masksMatch(a, b)) continue;
                 if (rectanglesOverlap(a.transform, b.transform)) {
-                    this.resolveCollision(a, b);
+                    this.resolveCollision(a, b, deltaTime);
                 }
             }
             for (let j = i + 1; j < this._dynamicBodies.length; j++) {
                 const b = this._dynamicBodies[j];
                 if (!this._masksMatch(a, b)) continue;
                 if (rectanglesOverlap(a.transform, b.transform)) {
-                    this.resolveCollision(a, b);
+                    this.resolveCollision(a, b, deltaTime);
                 }
             }
         }
@@ -76,16 +76,18 @@ class PhysicsSystem extends System {
                (b.physics.collisionMask & (1 << a.physics.collisionGroup)) !== 0;
     }
 
-    resolveCollision(a, b) {
+    resolveCollision(a, b, deltaTime) {
         if (a.physics.type === 'dynamic' && (b.physics.type === 'static' || b.physics.type === 'platform')) {
-            if (a.physics.vy >= 0 && a.transform.y + a.transform.height - a.physics.vy <= b.transform.y + 10) {
+            const prevBottom = a.transform.y + a.transform.height - a.physics.vy * deltaTime;
+            if (a.physics.vy >= 0 && prevBottom <= b.transform.y + 10) {
                 a.transform.y = b.transform.y - a.transform.height;
                 a.physics.vy = 0;
                 a.physics.isGrounded = true;
             }
         }
         if (b.physics.type === 'dynamic' && (a.physics.type === 'static' || a.physics.type === 'platform')) {
-            if (b.physics.vy >= 0 && b.transform.y + b.transform.height - b.physics.vy <= a.transform.y + 10) {
+            const prevBottom = b.transform.y + b.transform.height - b.physics.vy * deltaTime;
+            if (b.physics.vy >= 0 && prevBottom <= a.transform.y + 10) {
                 b.transform.y = a.transform.y - b.transform.height;
                 b.physics.vy = 0;
                 b.physics.isGrounded = true;

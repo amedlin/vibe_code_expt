@@ -132,9 +132,10 @@ class GameEngine {
         // Sky element spawn + behavior. Sky entities are ambient (no
         // physics / collisions / AI) and their churn does not invalidate
         // the cached static background.
-        this.ecs.addUpdateSystem(new SkySpawnSystem(
+        this.skySpawnSystem = new SkySpawnSystem(
             themeProvider, this.canvasWidth, this.canvasHeight, this
-        ));
+        );
+        this.ecs.addUpdateSystem(this.skySpawnSystem);
         this.ecs.addUpdateSystem(new SkyBehaviorSystem(
             this.canvasWidth, this.canvasHeight, this
         ));

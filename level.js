@@ -64,7 +64,13 @@ class Level {
 
             // Collectibles: `pill, x, y`. Only one collectible kind today;
             // additional kinds would slot in as parallel branches here.
-            if (parts.length === 3 && parts[0] === PILL_ID) {
+            if (parts[0] === PILL_ID) {
+                if (parts.length !== 3) {
+                    console.warn(
+                        `Pill line must have exactly 3 fields (pill, x, y): ${line}`
+                    );
+                    continue;
+                }
                 const x = parseFloat(parts[1]);
                 const y = parseFloat(parts[2]);
                 if (!isNaN(x) && !isNaN(y)) {

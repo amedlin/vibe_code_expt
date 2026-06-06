@@ -20,7 +20,11 @@ class SkyBehaviorSystem extends System {
         const ctx = {
             canvasWidth:  this.canvasWidth,
             canvasHeight: this.canvasHeight,
-            siblings:     sky
+            siblings:     sky,
+            // Mutable live entity list — mid-frame despawns are visible to
+            // behaviors that resolve leaders by id (avoids one-frame ghost
+            // leaders from the start-of-frame siblings snapshot).
+            liveEntities: this.engine.ecs.entities
         };
 
         // Iterate over a snapshot so behaviors that might (in the future)
