@@ -47,24 +47,51 @@ class SkySpawnSystem extends System {
             if (skyCount >= maxTotal) break;
             const rate = kind.spawnPerSecond ?? 0;
             if (rate > 0 && Math.random() < rate * deltaTime) {
-                this.spawnKind(kind, /* offscreen */ true);
+                this.spawnKind(kind, /* offscreen */ true, entities);
                 skyCount++;
             }
         }
     }
 
-    // Pre-warm: distribute `count` elements across `kinds` (round-robin)
-    // and spawn each with `offscreen=false` so they appear mid-screen
-    // instead of waiting at the entry edge.
+    // Pre-warm: distribute `count` elements across `kinds` proportional
+    // to each kind's spawnPerSecond, so high-rate kinds (e.g. flies)
+    // populate visibly on level entry and low-rate kinds (e.g. high
+    // clouds) don't crowd them out. Spawns with `offscreen=false` so
+    // entities appear mid-screen instead of waiting at the entry edge.
     preWarm(kinds, count) {
-        for (let i = 0; i < count; i++) {
-            const kind = kinds[i % kinds.length];
-            this.spawnKind(kind, /* offscreen */ false);
+        if (count <= 0 || kinds.length === 0) return;
+        const totalRate = kinds.reduce((s, k) => s + (k.spawnPerSecond ?? 0), 0);
+        const entities  = this.engine.ecs.entities;
+        let spawned = 0;
+        if (totalRate > 0) {
+            for (const kind of kinds) {
+                if (spawned >= count) break;
+                const rate = kind.spawnPerSecond ?? 0;
+                const share = Math.round((rate / totalRate) * count);
+                for (let i = 0; i < share && spawned < count; i++) {
+                    this.spawnKind(kind, /* offscreen */ false, entities);
+                    spawned++;
+                }
+            }
+        }
+        // Fill any leftover slots (from rounding) with the highest-rate
+        // kind so the budget is fully used.
+        if (spawned < count) {
+            let top = kinds[0];
+            for (const k of kinds) {
+                if ((k.spawnPerSecond ?? 0) > (top.spawnPerSecond ?? 0)) top = k;
+            }
+            while (spawned < count) {
+                this.spawnKind(top, /* offscreen */ false, entities);
+                spawned++;
+            }
         }
     }
 
-    spawnKind(kind, offscreen) {
-        const result = kind.spawn(this.canvasWidth, this.canvasHeight, offscreen);
+    spawnKind(kind, offscreen, entities) {
+        const result = kind.spawn(
+            this.canvasWidth, this.canvasHeight, offscreen, { entities }
+        );
         if (!result || !result.transform) {
             return;
         }

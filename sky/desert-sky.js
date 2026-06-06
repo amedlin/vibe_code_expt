@@ -187,30 +187,35 @@ function _insectPickNewTarget(transform, state, ctx) {
     // minimum is well above the player's casual eye-track speed.
     state.dartSpeed = randomRange(INSECT_MIN_DART_SPEED, INSECT_MAX_DART_SPEED);
 
-    // Most picks land inside the screen; INSECT_EXIT_PROB of the time
-    // we deliberately aim past one of the four edges so the fly darts
-    // off and despawns, freeing budget for fresh spawns. Exit targets
-    // bypass the short-hop constraint by design.
-    if (Math.random() < INSECT_EXIT_PROB) {
+    const cx = transform.x + transform.width  / 2;
+    const cy = transform.y + transform.height / 2;
+
+    // Edge-only exit: only consider exiting when the fly is already
+    // close enough to an edge that the exit dart stays within
+    // MAX_DART_DIST. This prevents long cross-screen exit flights —
+    // flies leave the screen organically when they've drifted to its
+    // periphery rather than rocketing across from the interior.
+    const distLeft  = cx;
+    const distRight = ctx.canvasWidth  - cx;
+    const distTop   = cy;
+    const distBot   = ctx.canvasHeight - cy;
+    const minEdgeDist = Math.min(distLeft, distRight, distTop, distBot);
+    const edgeReach   = INSECT_MAX_DART_DIST * 0.5;
+    if (minEdgeDist < edgeReach && Math.random() < INSECT_EXIT_PROB) {
         const m = 40;
-        const edge = Math.floor(Math.random() * 4);
-        switch (edge) {
-            case 0: // top
-                state.targetX = randomRange(0, ctx.canvasWidth);
-                state.targetY = -m;
-                break;
-            case 1: // right
-                state.targetX = ctx.canvasWidth + m;
-                state.targetY = randomRange(0, ctx.canvasHeight);
-                break;
-            case 2: // bottom
-                state.targetX = randomRange(0, ctx.canvasWidth);
-                state.targetY = ctx.canvasHeight + m;
-                break;
-            default: // left
-                state.targetX = -m;
-                state.targetY = randomRange(0, ctx.canvasHeight);
-                break;
+        const spread = INSECT_MAX_DART_DIST * 0.5;
+        if (minEdgeDist === distLeft) {
+            state.targetX = -m;
+            state.targetY = cy + randomRange(-spread, spread);
+        } else if (minEdgeDist === distRight) {
+            state.targetX = ctx.canvasWidth + m;
+            state.targetY = cy + randomRange(-spread, spread);
+        } else if (minEdgeDist === distTop) {
+            state.targetX = cx + randomRange(-spread, spread);
+            state.targetY = -m;
+        } else {
+            state.targetX = cx + randomRange(-spread, spread);
+            state.targetY = ctx.canvasHeight + m;
         }
         state.mode = 'dart';
         return;
@@ -219,8 +224,6 @@ function _insectPickNewTarget(transform, state, ctx) {
     // Short-hop interior pick: sample a point inside [MIN, MAX] from the
     // current position, retrying up to 8 angles to land inside the
     // screen. Falls back to a clamped point if every retry misses.
-    const cx = transform.x + transform.width  / 2;
-    const cy = transform.y + transform.height / 2;
     const pad = 20;
     const maxY = ctx.canvasHeight * 0.7;
     for (let i = 0; i < 8; i++) {
@@ -365,20 +368,63 @@ function _renderInsect(ctx, transform, state) {
     animator.render(ctx, transform.x, transform.y, transform.width, transform.height);
 }
 
+// Pick a spawn position for a new fly. If any other fly is already on
+// screen, place the newcomer within ~1.5 dart-hops of it so the swarm
+// builds in place. Otherwise drop the fly at a random interior spot.
+function _spawnInsectPosition(canvasW, canvasH, width, height, context) {
+    let near = null;
+    if (context && context.entities) {
+        for (const e of context.entities) {
+            const s = e.getComponent('SkyElement');
+            if (!s || s.kindId !== 'flyingInsect') continue;
+            const t = e.getComponent('Transform');
+            near = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
+            break;
+        }
+    }
+    const pad  = 10;
+    const maxY = canvasH * 0.65;
+    if (near) {
+        const r = INSECT_MAX_DART_DIST * 1.5;
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist  = randomRange(0, r);
+            const cx    = near.x + Math.cos(angle) * dist;
+            const cy    = near.y + Math.sin(angle) * dist;
+            const x = cx - width / 2;
+            const y = cy - height / 2;
+            if (x >= pad && x + width <= canvasW - pad
+             && y >= pad && y + height <= maxY) {
+                return { x, y, width, height };
+            }
+        }
+        // All cluster attempts fell off-screen — fall through to random.
+    }
+    return {
+        x: randomRange(pad, canvasW - pad - width),
+        y: randomRange(pad, maxY - height),
+        width, height
+    };
+}
+
 const FLYING_INSECT = {
     id: 'flyingInsect',
-    spawnPerSecond: 0.25,
-    spawn(canvasW, canvasH, offscreen) {
+    // Higher rate than other kinds so the screen reliably has enough
+    // flies on it for the swarm/leader behavior to be visible.
+    spawnPerSecond: 0.8,
+    spawn(canvasW, canvasH, _offscreen, context) {
         // Smaller bounding box so flies read as proper flies instead of
         // chunky bugs. Width slightly larger than height keeps the wing
         // ellipses room to extend sideways.
         const width  = randomRange(8, 12);
         const height = width * 0.95;
-        const transform = offscreen
-            ? spawnAtAnyEdge(canvasW, canvasH, width, height)
-            : { x: randomRange(20, canvasW - 20 - width),
-                y: randomRange(20, canvasH * 0.65),
-                width, height };
+
+        // Flies always appear inside the screen (no edge entry) — at
+        // their tiny size they read as "a fly just appeared" rather than
+        // popping. When other flies are already present, cluster the new
+        // one near one of them so the swarm grows in place instead of
+        // catching up via a long chase across the screen.
+        const transform = _spawnInsectPosition(canvasW, canvasH, width, height, context);
         const animator = new Animator(INSECT_BUZZ_ANIMATION);
         const state = {
             vx: randomRange(-60, 60),
