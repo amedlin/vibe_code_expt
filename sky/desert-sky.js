@@ -2,9 +2,14 @@
 //
 // Exports:
 //   HIGH_CLOUD    — thin, slow-drifting pale strip high in the sky.
-//   FLYING_INSECT — dual-mode: lightweight boids-flavored swarming when
-//                   other insects share the screen; dart-and-hover loop
+//   FLYING_INSECT — dual-mode: leader/follower swarm (lowest-id leader
+//                   does dart-and-hover; followers track it via a
+//                   critically-damped spring + separation) when two or
+//                   more flies share the screen; dart-and-hover loop
 //                   when alone. Animator drives a quick wing buzz.
+//                   Flies always spawn offscreen with an onscreen dart
+//                   target, never deliberately exit, and despawn only
+//                   when their bounding box drifts off the canvas.
 
 // ---- High cloud ---------------------------------------------------------
 
@@ -122,20 +127,21 @@ const INSECT_MIN_DART_DIST  = 25;
 const INSECT_MAX_DART_DIST  = 90;
 
 const INSECT_ARRIVE_DIST    = 5;    // px — within this, switch to hover
-const INSECT_MIN_HOVER      = 0.15; // s — minimum linger after a dart
-const INSECT_MAX_HOVER      = 0.7;  // s — maximum linger after a dart
+const INSECT_MIN_HOVER      = 0.25; // s — minimum linger after a dart
+const INSECT_MAX_HOVER      = 1.5;  // s — maximum linger after a dart
 
-// Follower-mode steering. Followers seek the leader (plus a small
-// per-follower offset) with proportional accel and separate from each
-// other; SEPARATION_R is the only neighbor radius still in use.
-const INSECT_SEPARATION_R   = 18;
+// Follower-mode steering uses a critically-damped spring (no overshoot)
+// around the leader's position plus a tight per-follower offset.
+// SEPARATION_R is the only neighbor radius still in use; tighter than
+// before so the swarm reads as a single moving cluster.
+const INSECT_FOLLOW_OMEGA   = 8.0;  // rad/s — spring angular freq (stiffness)
+const INSECT_SEPARATION_R   = 12;
 const INSECT_MAX_SPEED      = 360;
-const INSECT_FOLLOW_ACCEL   = 220;  // px/s^2 max steering force magnitude
-
-// Chance per pick that a solo / leader fly picks an exit target beyond
-// the screen instead of an interior one, so the population turns over
-// and doesn't pin itself indefinitely against the budget.
-const INSECT_EXIT_PROB      = 0.30;
+// Lateral half-extents of the per-follower offset around the leader.
+// Combined with separation forces this produces a tight ~28x20 cluster
+// of flies orbiting the leader.
+const INSECT_FOLLOW_HALF_X  = 14;
+const INSECT_FOLLOW_HALF_Y  = 10;
 
 function _countInsects(siblings) {
     let n = 0;
@@ -159,9 +165,11 @@ function _insectDartBehavior(transform, state, dt, ctx) {
         }
         return;
     }
-    // Dart mode. Even when the target is off-screen the arrive check
-    // never fires before isFullyOffscreen despawns the entity, so exit
-    // targets naturally retire the fly.
+    // Dart mode. Targets that happen to fall off the canvas (because the
+    // random walk drifted the fly to the periphery and the next hop went
+    // over the edge) are not special-cased — the fly just keeps moving
+    // toward them, and isFullyOffscreen despawns the entity once its
+    // bounding box leaves the screen.
     const cx = transform.x + transform.width / 2;
     const cy = transform.y + transform.height / 2;
     const dx = state.targetX - cx;
@@ -182,68 +190,23 @@ function _insectDartBehavior(transform, state, dt, ctx) {
     transform.y += state.vy * dt;
 }
 
-function _insectPickNewTarget(transform, state, ctx) {
+function _insectPickNewTarget(transform, state, _ctx) {
     // Each dart leg gets its own speed so motion has texture; the
     // minimum is well above the player's casual eye-track speed.
     state.dartSpeed = randomRange(INSECT_MIN_DART_SPEED, INSECT_MAX_DART_SPEED);
 
+    // Pure random-walk short hop: pick a random direction and hop length
+    // from the current position. The fly never deliberately picks an
+    // exit target — it just hops randomly, and as the random walk drifts
+    // it to the periphery it eventually picks a hop that lands off the
+    // canvas, at which point isFullyOffscreen despawns the entity. This
+    // is the only way flies leave the screen now.
     const cx = transform.x + transform.width  / 2;
     const cy = transform.y + transform.height / 2;
-
-    // Edge-only exit: only consider exiting when the fly is already
-    // close enough to an edge that the exit dart stays within
-    // MAX_DART_DIST. This prevents long cross-screen exit flights —
-    // flies leave the screen organically when they've drifted to its
-    // periphery rather than rocketing across from the interior.
-    const distLeft  = cx;
-    const distRight = ctx.canvasWidth  - cx;
-    const distTop   = cy;
-    const distBot   = ctx.canvasHeight - cy;
-    const minEdgeDist = Math.min(distLeft, distRight, distTop, distBot);
-    const edgeReach   = INSECT_MAX_DART_DIST * 0.5;
-    if (minEdgeDist < edgeReach && Math.random() < INSECT_EXIT_PROB) {
-        const m = 40;
-        const spread = INSECT_MAX_DART_DIST * 0.5;
-        if (minEdgeDist === distLeft) {
-            state.targetX = -m;
-            state.targetY = cy + randomRange(-spread, spread);
-        } else if (minEdgeDist === distRight) {
-            state.targetX = ctx.canvasWidth + m;
-            state.targetY = cy + randomRange(-spread, spread);
-        } else if (minEdgeDist === distTop) {
-            state.targetX = cx + randomRange(-spread, spread);
-            state.targetY = -m;
-        } else {
-            state.targetX = cx + randomRange(-spread, spread);
-            state.targetY = ctx.canvasHeight + m;
-        }
-        state.mode = 'dart';
-        return;
-    }
-
-    // Short-hop interior pick: sample a point inside [MIN, MAX] from the
-    // current position, retrying up to 8 angles to land inside the
-    // screen. Falls back to a clamped point if every retry misses.
-    const pad = 20;
-    const maxY = ctx.canvasHeight * 0.7;
-    for (let i = 0; i < 8; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const hop = randomRange(INSECT_MIN_DART_DIST, INSECT_MAX_DART_DIST);
-        const tx = cx + Math.cos(angle) * hop;
-        const ty = cy + Math.sin(angle) * hop;
-        if (tx >= pad && tx <= ctx.canvasWidth - pad
-         && ty >= pad && ty <= maxY) {
-            state.targetX = tx;
-            state.targetY = ty;
-            state.mode = 'dart';
-            return;
-        }
-    }
-    // Fallback: clamp a hop direction to the screen.
-    state.targetX = Math.max(pad, Math.min(ctx.canvasWidth - pad,
-        cx + randomRange(-INSECT_MAX_DART_DIST, INSECT_MAX_DART_DIST)));
-    state.targetY = Math.max(pad, Math.min(maxY,
-        cy + randomRange(-INSECT_MAX_DART_DIST, INSECT_MAX_DART_DIST)));
+    const angle = Math.random() * Math.PI * 2;
+    const hop   = randomRange(INSECT_MIN_DART_DIST, INSECT_MAX_DART_DIST);
+    state.targetX = cx + Math.cos(angle) * hop;
+    state.targetY = cy + Math.sin(angle) * hop;
     state.mode = 'dart';
 }
 
@@ -264,14 +227,15 @@ function _findLeaderEntity(siblings) {
     return leader;
 }
 
-// Follower: steer toward (leader center + a small persistent per-follower
-// offset) with separation from other insects to avoid stacking. The
-// followers don't run their own dart/hover loop — they're locked to the
-// leader's wanderings.
+// Follower: critically-damped spring around (leader center + a small
+// persistent per-follower offset), plus separation from other flies so
+// they don't pile on top of each other. Followers run NO dart logic —
+// they orbit the leader entirely via the spring, which by construction
+// has no overshoot and so reads as smooth tracking rather than darting.
 function _insectFollowBehavior(transform, state, dt, ctx, leaderEntity) {
     if (state.followOffsetX == null) {
-        state.followOffsetX = randomRange(-26, 26);
-        state.followOffsetY = randomRange(-18, 18);
+        state.followOffsetX = randomRange(-INSECT_FOLLOW_HALF_X, INSECT_FOLLOW_HALF_X);
+        state.followOffsetY = randomRange(-INSECT_FOLLOW_HALF_Y, INSECT_FOLLOW_HALF_Y);
     }
     const leaderT = leaderEntity.getComponent('Transform');
     const targetX = leaderT.x + leaderT.width  / 2 + state.followOffsetX;
@@ -279,20 +243,14 @@ function _insectFollowBehavior(transform, state, dt, ctx, leaderEntity) {
 
     const myCx = transform.x + transform.width  / 2;
     const myCy = transform.y + transform.height / 2;
-    const dx = targetX - myCx;
-    const dy = targetY - myCy;
-    const dist = Math.hypot(dx, dy);
 
-    let ax = 0;
-    let ay = 0;
-    if (dist > 0.5) {
-        const inv = INSECT_FOLLOW_ACCEL / dist;
-        ax += dx * inv;
-        ay += dy * inv;
-    }
+    // Critically-damped spring: accel = omega^2 * (target - pos) - 2*omega * vel.
+    // Zero overshoot, smooth settling, frame-rate-independent at sane dt.
+    const omega = INSECT_FOLLOW_OMEGA;
+    let ax = (targetX - myCx) * omega * omega - state.vx * 2 * omega;
+    let ay = (targetY - myCy) * omega * omega - state.vy * 2 * omega;
 
-    // Separation from other insects (including the leader) so followers
-    // don't visually overlap.
+    // Short-range separation so two followers don't visually overlap.
     for (const e of ctx.siblings) {
         if (e === state.selfEntity) continue;
         const other = e.getComponent('SkyElement');
@@ -303,22 +261,16 @@ function _insectFollowBehavior(transform, state, dt, ctx, leaderEntity) {
         const d2 = ddx * ddx + ddy * ddy;
         if (d2 < INSECT_SEPARATION_R * INSECT_SEPARATION_R && d2 > 0.001) {
             const inv = 1 / Math.sqrt(d2);
-            ax += ddx * inv * 140;
-            ay += ddy * inv * 140;
+            ax += ddx * inv * 200;
+            ay += ddy * inv * 200;
         }
-    }
-
-    // Cap steering accel.
-    const amag = Math.hypot(ax, ay);
-    const maxAccel = INSECT_FOLLOW_ACCEL * 2;
-    if (amag > maxAccel) {
-        ax = (ax / amag) * maxAccel;
-        ay = (ay / amag) * maxAccel;
     }
 
     state.vx += ax * dt;
     state.vy += ay * dt;
 
+    // Speed cap so a fresh follower entering from off-screen doesn't
+    // teleport in via the spring's huge initial pull.
     const vmag = Math.hypot(state.vx, state.vy);
     if (vmag > INSECT_MAX_SPEED) {
         state.vx = (state.vx / vmag) * INSECT_MAX_SPEED;
@@ -368,43 +320,67 @@ function _renderInsect(ctx, transform, state) {
     animator.render(ctx, transform.x, transform.y, transform.width, transform.height);
 }
 
-// Pick a spawn position for a new fly. If any other fly is already on
-// screen, place the newcomer within ~1.5 dart-hops of it so the swarm
-// builds in place. Otherwise drop the fly at a random interior spot.
-function _spawnInsectPosition(canvasW, canvasH, width, height, context) {
-    let near = null;
+// Pick an offscreen spawn position and an interior initial dart target
+// for a new fly. If another fly is already on screen, enter from the
+// screen edge nearest that fly (aligned with its perpendicular
+// coordinate) so the catchup distance is short — long cross-screen
+// entries are precisely what we're avoiding. If no fly exists yet, drop
+// the newcomer at a random edge with a target somewhere in the
+// interior. Either way the dart target is on-screen so the fly's first
+// action is to enter the canvas.
+function _spawnInsectOffscreen(canvasW, canvasH, width, height, context) {
+    let nearCx = null;
+    let nearCy = null;
     if (context && context.entities) {
         for (const e of context.entities) {
             const s = e.getComponent('SkyElement');
             if (!s || s.kindId !== 'flyingInsect') continue;
             const t = e.getComponent('Transform');
-            near = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
+            nearCx = t.x + t.width  / 2;
+            nearCy = t.y + t.height / 2;
             break;
         }
     }
-    const pad  = 10;
-    const maxY = canvasH * 0.65;
-    if (near) {
-        const r = INSECT_MAX_DART_DIST * 1.5;
-        for (let i = 0; i < 8; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist  = randomRange(0, r);
-            const cx    = near.x + Math.cos(angle) * dist;
-            const cy    = near.y + Math.sin(angle) * dist;
-            const x = cx - width / 2;
-            const y = cy - height / 2;
-            if (x >= pad && x + width <= canvasW - pad
-             && y >= pad && y + height <= maxY) {
-                return { x, y, width, height };
-            }
+
+    let x, y, targetX, targetY;
+    if (nearCx != null) {
+        const distLeft  = nearCx;
+        const distRight = canvasW - nearCx;
+        const distTop   = nearCy;
+        const distBot   = canvasH - nearCy;
+        const minD = Math.min(distLeft, distRight, distTop, distBot);
+        const jitter = 30;
+        if (minD === distLeft) {
+            x = -width;
+            y = nearCy - height / 2 + randomRange(-jitter, jitter);
+        } else if (minD === distRight) {
+            x = canvasW;
+            y = nearCy - height / 2 + randomRange(-jitter, jitter);
+        } else if (minD === distTop) {
+            x = nearCx - width / 2 + randomRange(-jitter, jitter);
+            y = -height;
+        } else {
+            x = nearCx - width / 2 + randomRange(-jitter, jitter);
+            y = canvasH;
         }
-        // All cluster attempts fell off-screen — fall through to random.
+        // Aim straight at the existing fly — only the very first fly (if
+        // promoted to leader after this one despawns) ever uses this
+        // target; followers immediately defer to the leader.
+        targetX = nearCx + randomRange(-30, 30);
+        targetY = nearCy + randomRange(-20, 20);
+    } else {
+        const edge = Math.floor(Math.random() * 4);
+        switch (edge) {
+            case 0: x = randomRange(0, canvasW - width); y = -height;          break;
+            case 1: x = canvasW;                          y = randomRange(0, canvasH * 0.6); break;
+            case 2: x = randomRange(0, canvasW - width); y = canvasH;          break;
+            default: x = -width;                          y = randomRange(0, canvasH * 0.6); break;
+        }
+        targetX = randomRange(canvasW * 0.25, canvasW * 0.75);
+        targetY = randomRange(canvasH * 0.20, canvasH * 0.55);
     }
-    return {
-        x: randomRange(pad, canvasW - pad - width),
-        y: randomRange(pad, maxY - height),
-        width, height
-    };
+
+    return { transform: { x, y, width, height }, targetX, targetY };
 }
 
 const FLYING_INSECT = {
@@ -419,20 +395,21 @@ const FLYING_INSECT = {
         const width  = randomRange(8, 12);
         const height = width * 0.95;
 
-        // Flies always appear inside the screen (no edge entry) — at
-        // their tiny size they read as "a fly just appeared" rather than
-        // popping. When other flies are already present, cluster the new
-        // one near one of them so the swarm grows in place instead of
-        // catching up via a long chase across the screen.
-        const transform = _spawnInsectPosition(canvasW, canvasH, width, height, context);
-        const animator = new Animator(INSECT_BUZZ_ANIMATION);
+        // Flies always spawn outside the visible canvas and dart in
+        // toward an interior target; from there their standard
+        // dart/hover (or follow-the-leader) behavior takes over.
+        // They never deliberately exit — they leave the screen only as
+        // a side effect of the leader's random walk drifting to the
+        // periphery and picking an off-edge hop.
+        const placement = _spawnInsectOffscreen(canvasW, canvasH, width, height, context);
+        const animator  = new Animator(INSECT_BUZZ_ANIMATION);
         const state = {
-            vx: randomRange(-60, 60),
-            vy: randomRange(-40, 40),
+            vx: 0,
+            vy: 0,
             mode: 'dart',
-            targetX: null,
-            targetY: null,
-            dartSpeed: INSECT_MIN_DART_SPEED, // overwritten on first pick
+            targetX: placement.targetX,
+            targetY: placement.targetY,
+            dartSpeed: randomRange(INSECT_MIN_DART_SPEED, INSECT_MAX_DART_SPEED),
             hoverTimer: 0,
             bobTime: randomRange(0, Math.PI * 2),
             followOffsetX: null,              // lazily set when first following
@@ -440,7 +417,7 @@ const FLYING_INSECT = {
             animator,
             selfEntity: null                  // resolved on first behavior tick
         };
-        return { transform, state, animator };
+        return { transform: placement.transform, state, animator };
     },
     behavior: _insectBehavior,
     render: _renderInsect
