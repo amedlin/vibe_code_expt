@@ -1,5 +1,5 @@
 # Level Gamma
-# Theme: forest
+# Theme: desert
 # Bilateral symmetry around the vertical center line x=400. Five tiers,
 # 100px apart vertically, with outer-pair and center platforms each tier.
 # Platform: x, y, width, height

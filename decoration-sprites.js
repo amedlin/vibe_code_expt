@@ -128,3 +128,106 @@ function drawSnowPineSprite(ctx, w, h) {
         ctx.fill();
     }
 }
+
+// --- Desert prop sprites ------------------------------------------------
+
+function drawDesertGrassSprite(ctx, w, h) {
+    // Sparse golden straw blades — thinner and more spread out than the
+    // lush forest grass, with browner tones to read as dry.
+    const bases = [0.20, 0.42, 0.62, 0.85];
+    const tans = ['#c4a04a', '#a07c34', '#d4b364', '#8b6c2a'];
+    for (let i = 0; i < bases.length; i++) {
+        const x = w * bases[i];
+        const bladeH = h * (0.45 + (i % 3) * 0.12);
+        ctx.fillStyle = tans[i % tans.length];
+        ctx.beginPath();
+        ctx.moveTo(x, h);
+        ctx.quadraticCurveTo(x - 3, h - bladeH * 0.6, x - 1, h - bladeH);
+        ctx.quadraticCurveTo(x + 3, h - bladeH * 0.75, x + 2, h - bladeH);
+        ctx.quadraticCurveTo(x + 5, h - bladeH * 0.5, x, h);
+        ctx.fill();
+    }
+}
+
+function drawDryShrubSprite(ctx, w, h) {
+    // Tumbleweed-ish dry brush: dome of tangled wisps with radiating spokes.
+    const cx = w * 0.5;
+    const cy = h * 0.62;
+    const r = Math.min(w, h) * 0.32;
+
+    ctx.fillStyle = '#7d5a2e';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + r * 0.20, r * 1.05, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#a07c34';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, r, r * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#c19952';
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.18, cy - r * 0.22, r * 0.42, r * 0.30, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#604320';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + 0.3;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * r * 0.30, cy + Math.sin(a) * r * 0.30);
+        ctx.lineTo(cx + Math.cos(a) * r * 0.95, cy + Math.sin(a) * r * 0.75);
+        ctx.stroke();
+    }
+}
+
+function drawPalmTreeSprite(ctx, w, h) {
+    // Slightly curved trunk
+    ctx.strokeStyle = '#6e4f31';
+    ctx.lineWidth = w * 0.10;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.50, h * 0.98);
+    ctx.quadraticCurveTo(w * 0.42, h * 0.55, w * 0.52, h * 0.22);
+    ctx.stroke();
+
+    // Trunk segment hatches — short cross-strokes for palm-bark texture.
+    ctx.strokeStyle = '#553a22';
+    ctx.lineWidth = w * 0.025;
+    for (let i = 0; i < 4; i++) {
+        const t = 0.30 + i * 0.16;
+        const y = h * (0.98 - t * 0.76);
+        ctx.beginPath();
+        ctx.moveTo(w * 0.42, y);
+        ctx.lineTo(w * 0.58, y);
+        ctx.stroke();
+    }
+
+    // Crown of fronds — six elongated leaves rotated around the trunk top.
+    const crownX = w * 0.52;
+    const crownY = h * 0.22;
+    const frondAngles = [-2.6, -1.9, -1.1, -0.3, 0.5, 1.2];
+    for (const a of frondAngles) {
+        ctx.save();
+        ctx.translate(crownX, crownY);
+        ctx.rotate(a);
+        ctx.fillStyle = '#345f2e';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.22, h * 0.02, w * 0.28, h * 0.05, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#4f7d3e';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.20, 0, w * 0.20, h * 0.02, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Coconut cluster nestled at the base of the crown.
+    ctx.fillStyle = '#4a3520';
+    ctx.beginPath();
+    ctx.arc(crownX + w * 0.05, crownY + h * 0.05, w * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(crownX - w * 0.04, crownY + h * 0.06, w * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+}
