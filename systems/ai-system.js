@@ -109,24 +109,33 @@ class AISystem extends System {
             return NEUTRAL_CONTROL_INPUT;
         }
 
-        const route = navGraph.findPath(currentPlatform, goalPlatform);
-        if (!route) {
-            this.skipUnreachableTarget(state);
-            return NEUTRAL_CONTROL_INPUT;
-        }
+        const targetChanged = state.targetEntityId !== target.entityId;
+        const goalChanged = !state.route ||
+            state.route.platformIds[state.route.platformIds.length - 1] !== goalPlatform.id;
+        const offPath = groundedPlatform && state.route &&
+            state.route.platformIds.indexOf(groundedPlatform.id) < 0;
 
-        if (state.targetEntityId !== target.entityId) {
+        // Only re-roll the route when needed: new target, new goal platform,
+        // or we ended up on an unexpected platform. Otherwise reuse the cached
+        // route so randomized pathfinding doesn't pick a fresh route every
+        // frame and jitter the AI.
+        if (targetChanged || goalChanged || offPath) {
+            const route = navGraph.findPath(currentPlatform, goalPlatform);
+            if (!route) {
+                this.skipUnreachableTarget(state);
+                return NEUTRAL_CONTROL_INPUT;
+            }
+            state.route = route;
             state.targetEntityId = target.entityId;
+            state.pathStep = 0;
             state.transit = null;
         }
 
-        // Always use the freshest route from current position. If we land
-        // on an unexpected platform (overshoot, undershoot, mid-air bump),
-        // pathfinding from there gives a new viable route via waypoints.
-        state.route = route;
         if (groundedPlatform) {
-            const onPathIndex = route.platformIds.indexOf(groundedPlatform.id);
-            state.pathStep = onPathIndex >= 0 ? onPathIndex : 0;
+            const onPathIndex = state.route.platformIds.indexOf(groundedPlatform.id);
+            if (onPathIndex >= 0) {
+                state.pathStep = onPathIndex;
+            }
         }
 
         const goalX = clamp(

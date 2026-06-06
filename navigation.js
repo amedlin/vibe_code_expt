@@ -215,7 +215,11 @@ class NavigationGraph {
             const path = queue.shift();
             const currentId = path[path.length - 1];
 
-            for (const edge of this.getEdgesFrom(currentId)) {
+            // Shuffle edges so that when multiple equally-short paths exist,
+            // BFS picks a random one instead of always the first found.
+            const edges = shuffleArray(this.getEdgesFrom(currentId).slice());
+
+            for (const edge of edges) {
                 if (visited.has(edge.toId)) continue;
 
                 edgeKey.set(`${currentId}->${edge.toId}`, edge);
@@ -262,8 +266,7 @@ class NavigationGraph {
         let currentPlatform = startPlatform;
 
         while (remaining.length > 0) {
-            let bestIndex = -1;
-            let bestScore = Infinity;
+            const candidates = [];
 
             for (let i = 0; i < remaining.length; i++) {
                 const goalPlatform = platformForTarget(remaining[i], this.platforms);
@@ -277,17 +280,25 @@ class NavigationGraph {
                     remaining[i].y - currentPlatform.top
                 );
 
-                if (score < bestScore) {
-                    bestScore = score;
-                    bestIndex = i;
-                }
+                candidates.push({ remainingIndex: i, score });
             }
 
-            if (bestIndex < 0) {
+            if (candidates.length === 0) {
                 break;
             }
 
-            const chosen = remaining.splice(bestIndex, 1)[0];
+            // Softmax sampling biased toward lower scores. Temperature controls
+            // exploration: cheaper targets are strongly preferred but the AI
+            // can occasionally pick a slightly worse one for variety.
+            const minScore = Math.min(...candidates.map((c) => c.score));
+            const temperature = NAV_PLAN_TEMPERATURE;
+            const weights = candidates.map((c) =>
+                Math.exp(-(c.score - minScore) / temperature)
+            );
+            const pickedIndex = weightedRandomIndex(weights);
+            const chosenCandidate = candidates[pickedIndex];
+
+            const chosen = remaining.splice(chosenCandidate.remainingIndex, 1)[0];
             plan.push(chosen.entityId);
 
             const goalPlatform = platformForTarget(chosen, this.platforms);
@@ -298,6 +309,32 @@ class NavigationGraph {
 
         return plan;
     }
+}
+
+const NAV_PLAN_TEMPERATURE = 350;
+
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
+    }
+    return arr;
+}
+
+function weightedRandomIndex(weights) {
+    let total = 0;
+    for (const w of weights) total += w;
+    if (total <= 0) {
+        return Math.floor(Math.random() * weights.length);
+    }
+    let r = Math.random() * total;
+    for (let i = 0; i < weights.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return i;
+    }
+    return weights.length - 1;
 }
 
 function clamp(value, min, max) {
