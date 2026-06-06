@@ -256,10 +256,11 @@ class NavigationGraph {
         return { platformIds, steps };
     }
 
-    buildCollectiblePlan(collectibles, startPlatform) {
+    buildCollectiblePlan(collectibles, startPlatform, options = {}) {
         if (!startPlatform || collectibles.length === 0) {
             return [];
         }
+        const temperature = options.temperature ?? NAV_PLAN_TEMPERATURE;
 
         const remaining = collectibles.map((c) => ({ ...c }));
         const plan = [];
@@ -291,7 +292,6 @@ class NavigationGraph {
             // exploration: cheaper targets are strongly preferred but the AI
             // can occasionally pick a slightly worse one for variety.
             const minScore = Math.min(...candidates.map((c) => c.score));
-            const temperature = NAV_PLAN_TEMPERATURE;
             const weights = candidates.map((c) =>
                 Math.exp(-(c.score - minScore) / temperature)
             );
@@ -418,10 +418,10 @@ function findPlatformPath(fromPlatform, toPlatform, platforms, limits) {
     return path ? path.platformIds : null;
 }
 
-function buildCollectiblePlan(collectibles, startPlatform, platforms, limits) {
+function buildCollectiblePlan(collectibles, startPlatform, platforms, limits, options) {
     const graph = new NavigationGraph();
     graph.platforms = platforms;
     graph.limits = limits;
     graph.preprocessConnectivity();
-    return graph.buildCollectiblePlan(collectibles, startPlatform);
+    return graph.buildCollectiblePlan(collectibles, startPlatform, options);
 }

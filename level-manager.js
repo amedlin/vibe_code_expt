@@ -62,7 +62,17 @@ class LevelManager {
         const spawn = findSafePlayerSpawn(levelData, this.engine.canvasWidth);
         this.createPlayer(spawn.x, spawn.y);
 
-        const navLimits = computeNavLimits(700, this.engine.gravity, 300, PLAYER_SPAWN_WIDTH);
+        // Derive nav graph limits from the actual player entity so the AI
+        // routes match what the agent can really do.
+        const playerEntity = this.engine.ecs.playerEntity;
+        const movement = playerEntity.getComponent('Movement');
+        const playerTransform = playerEntity.getComponent('Transform');
+        const navLimits = computeNavLimits(
+            movement.jumpPower,
+            this.engine.gravity,
+            movement.speed,
+            playerTransform.width
+        );
         this.engine.navigationGraph.rebuild(
             this.engine.ecs.entities,
             navLimits,
@@ -156,7 +166,9 @@ class LevelManager {
 
             entity.addComponent('PlayerControlled', new PlayerControlledComponent());
             entity.addComponent('AIAgent', new AIAgentComponent());
-            entity.addComponent('AIState', new AIStateComponent());
+            entity.addComponent('AIPlan', new AIPlanComponent());
+            entity.addComponent('AINavigation', new AINavigationComponent());
+            entity.addComponent('AIProgress', new AIProgressComponent());
             console.log('Control components added');
 
             entity.addComponent('Movement', new MovementComponent(300, 700));
