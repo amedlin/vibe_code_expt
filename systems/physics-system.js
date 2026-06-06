@@ -55,18 +55,11 @@ class PhysicsSystem extends System {
                 if ((a.physics.collisionMask & (1 << b.physics.collisionGroup)) === 0) continue;
                 if ((b.physics.collisionMask & (1 << a.physics.collisionGroup)) === 0) continue;
 
-                if (this.rectanglesOverlap(a.transform, b.transform)) {
+                if (rectanglesOverlap(a.transform, b.transform)) {
                     this.resolveCollision(a, b);
                 }
             }
         }
-    }
-
-    rectanglesOverlap(transformA, transformB) {
-        return transformA.x < transformB.x + transformB.width &&
-               transformA.x + transformA.width > transformB.x &&
-               transformA.y < transformB.y + transformB.height &&
-               transformA.y + transformA.height > transformB.y;
     }
 
     resolveCollision(a, b) {

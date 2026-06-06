@@ -313,34 +313,6 @@ class NavigationGraph {
 
 const NAV_PLAN_TEMPERATURE = 350;
 
-function shuffleArray(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const tmp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = tmp;
-    }
-    return arr;
-}
-
-function weightedRandomIndex(weights) {
-    let total = 0;
-    for (const w of weights) total += w;
-    if (total <= 0) {
-        return Math.floor(Math.random() * weights.length);
-    }
-    let r = Math.random() * total;
-    for (let i = 0; i < weights.length; i++) {
-        r -= weights[i];
-        if (r <= 0) return i;
-    }
-    return weights.length - 1;
-}
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
 function getCollectibleTargets(entities) {
     const targets = [];
     for (const entity of entities) {

@@ -20,7 +20,7 @@ class MovementSystem extends System {
                     physics.vx = 0;
                 }
 
-                physics.vx = this.accelerateToward(
+                physics.vx = accelerateToward(
                     physics.vx,
                     targetVx,
                     movement.groundAcceleration,
@@ -30,7 +30,7 @@ class MovementSystem extends System {
                 // Increased air speed only applies when falling downwards
                 const targetVx = physics.vy > 0 ? this.getTargetVx(input, movement.airMaxSpeed) : this.getTargetVx(input, movement.speed);
 
-                physics.vx = this.accelerateToward(
+                physics.vx = accelerateToward(
                     physics.vx,
                     targetVx,
                     movement.airAcceleration,
@@ -56,16 +56,5 @@ class MovementSystem extends System {
             return maxSpeed;
         }
         return 0;
-    }
-
-    accelerateToward(current, target, acceleration, deltaTime) {
-        const step = acceleration * deltaTime;
-        if (current < target) {
-            return Math.min(target, current + step);
-        }
-        if (current > target) {
-            return Math.max(target, current - step);
-        }
-        return current;
     }
 }

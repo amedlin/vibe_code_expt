@@ -43,7 +43,7 @@ const FRONT_SCALE_MAX = 0.05;
 
 function computeDecorationTransform(sprite, surfaceY, anchorX, depthLayer) {
     if (depthLayer === 'back') {
-        const scale = BACK_SCALE_MIN + Math.random() * (BACK_SCALE_MAX - BACK_SCALE_MIN);
+        const scale = randomInRange(BACK_SCALE_MIN, BACK_SCALE_MAX);
         const width = sprite.width * scale;
         const height = sprite.height * scale;
         return {
@@ -56,8 +56,7 @@ function computeDecorationTransform(sprite, surfaceY, anchorX, depthLayer) {
         };
     }
 
-    const depthOffset = FRONT_DISPLACE_MIN +
-        Math.random() * (FRONT_DISPLACE_MAX - FRONT_DISPLACE_MIN);
+    const depthOffset = randomInRange(FRONT_DISPLACE_MIN, FRONT_DISPLACE_MAX);
     const depthT = (depthOffset - FRONT_DISPLACE_MIN) /
         (FRONT_DISPLACE_MAX - FRONT_DISPLACE_MIN);
     const scale = 1 + depthT * FRONT_SCALE_MAX;
