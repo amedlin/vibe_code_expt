@@ -70,6 +70,7 @@ class ECS {
         this.updateSystems = [];
         this.renderSystems = [];
         this.staticRenderSystems = [];
+        this.backDynamicRenderSystems = [];
         this.nextEntityId = 0;
         this.entitySetListeners = [];
     }
@@ -90,6 +91,9 @@ class ECS {
             system.invalidateEntityCache();
         }
         for (const system of this.staticRenderSystems) {
+            system.invalidateEntityCache();
+        }
+        for (const system of this.backDynamicRenderSystems) {
             system.invalidateEntityCache();
         }
         for (const listener of this.entitySetListeners) {
@@ -129,11 +133,21 @@ class ECS {
         return this;
     }
 
-    // Render systems whose output never changes during gameplay (sky,
-    // platforms, back decorations). The engine renders these once into an
-    // offscreen canvas at level load and just blits the result each frame.
+    // Render systems whose output never changes during gameplay
+    // (platforms, back decorations). The engine renders these once into
+    // the cached props canvas at level load and blits the result each
+    // frame.
     addStaticRenderSystem(system) {
         this.staticRenderSystems.push(system);
+        return this;
+    }
+
+    // Render systems for distant animated content that should paint
+    // ABOVE the procedural background but BEHIND platforms / props /
+    // gameplay entities. Used by the sky element system so clouds and
+    // birds read as background rather than foreground.
+    addBackDynamicRenderSystem(system) {
+        this.backDynamicRenderSystems.push(system);
         return this;
     }
 
@@ -155,6 +169,12 @@ class ECS {
         }
     }
 
+    renderBackDynamic(ctx) {
+        for (let system of this.backDynamicRenderSystems) {
+            system.update(0, this.entities, ctx);
+        }
+    }
+
     clearEntities() {
         this.entities = [];
         this.playerEntity = null;
@@ -167,13 +187,17 @@ class ECS {
         this.updateSystems = [];
         this.renderSystems = [];
         this.staticRenderSystems = [];
+        this.backDynamicRenderSystems = [];
     }
 
     getStats() {
         return {
             entityCount: this.entities.length,
             updateSystemCount: this.updateSystems.length,
-            renderSystemCount: this.renderSystems.length + this.staticRenderSystems.length
+            renderSystemCount:
+                this.renderSystems.length
+                + this.staticRenderSystems.length
+                + this.backDynamicRenderSystems.length
         };
     }
 }

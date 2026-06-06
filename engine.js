@@ -61,13 +61,19 @@ class GameEngine {
         this._staticLayerDirty = true;
         this._lastInventoryCount = -1;
 
-        // Offscreen canvas for the static back layer (sky + platforms + back
-        // decorations). Rebuilt only when the entity set changes. Safe while
-        // the camera is stationary; if camera scrolling is added later, this
-        // canvas would need to be larger than the viewport or invalidated
-        // whenever the camera moves.
-        this.staticLayerCanvas = document.createElement('canvas');
-        this.staticLayerCtx = this.staticLayerCanvas.getContext('2d');
+        // Cached back layer is split into two offscreen canvases so that
+        // animated sky elements can paint between them and still read as
+        // distant background:
+        //   backgroundCanvas — procedural sky / dunes / hills (theme bg)
+        //   propsCanvas      — platforms + back decorations (transparent)
+        // Both are rebuilt whenever the entity set changes in a way that
+        // affects the static layer. Safe while the camera is stationary;
+        // a future scrolling camera would need viewport-sized rolling
+        // canvases or per-camera-move invalidation.
+        this.backgroundCanvas = document.createElement('canvas');
+        this.backgroundCtx    = this.backgroundCanvas.getContext('2d');
+        this.propsCanvas      = document.createElement('canvas');
+        this.propsCtx         = this.propsCanvas.getContext('2d');
 
         // The active theme is resolved by LevelManager at level spawn time
         // and stored here so render systems can read it via the getter that
@@ -133,14 +139,18 @@ class GameEngine {
             this.canvasWidth, this.canvasHeight, this
         ));
 
-        // Static back layer — never changes between level loads.
+        // Back dynamic layer — painted between the procedural background
+        // and the props (platforms + back decorations) so sky elements
+        // read as distant background instead of foreground.
+        this.ecs.addBackDynamicRenderSystem(new SkyRenderSystem());
+
+        // Static props layer — platforms + back decorations. Cached into
+        // an offscreen canvas with a transparent base so the back-dynamic
+        // sky shows through wherever a prop doesn't cover it.
         this.ecs.addStaticRenderSystem(new PlatformRenderSystem(this.camera, themeProvider));
         this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back', themeProvider));
 
-        // Dynamic layer — re-rendered each frame while playing. SkyRender
-        // is first so animated sky paints above the static background but
-        // behind the player, tangrams, and front decorations.
-        this.ecs.addRenderSystem(new SkyRenderSystem());
+        // Front dynamic layer — re-rendered each frame while playing.
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));
@@ -355,8 +365,15 @@ class GameEngine {
 
     renderWorld(showDebugHud) {
         this.ensureStaticLayer();
-        this.ctx.drawImage(this.staticLayerCanvas, 0, 0);
 
+        // Paint order: procedural background -> animated sky (clouds,
+        // birds, ...) -> platforms + back decorations -> player + tangrams
+        // + front decorations. The cached props canvas has a transparent
+        // base, so the sky shows through wherever there is no platform or
+        // back prop.
+        this.ctx.drawImage(this.backgroundCanvas, 0, 0);
+        this.ecs.renderBackDynamic(this.ctx);
+        this.ctx.drawImage(this.propsCanvas, 0, 0);
         this.ecs.render(this.ctx);
 
         if (showDebugHud) {
@@ -370,28 +387,33 @@ class GameEngine {
         if (!this._staticLayerDirty) {
             return;
         }
-        if (this.staticLayerCanvas.width !== this.canvasWidth ||
-            this.staticLayerCanvas.height !== this.canvasHeight) {
-            this.staticLayerCanvas.width = this.canvasWidth;
-            this.staticLayerCanvas.height = this.canvasHeight;
+        for (const canvas of [this.backgroundCanvas, this.propsCanvas]) {
+            if (canvas.width !== this.canvasWidth ||
+                canvas.height !== this.canvasHeight) {
+                canvas.width  = this.canvasWidth;
+                canvas.height = this.canvasHeight;
+            }
         }
-        const sctx = this.staticLayerCtx;
         // 1. Backmost: theme-provided procedural background. The seeded RNG
         //    is built fresh every regeneration so the output is purely a
         //    function of (theme, seed) and stays identical across reloads
         //    and restarts. Falls back to a plain sky fill if no theme is
         //    active yet (e.g. before the first level loads).
+        const bgctx = this.backgroundCtx;
         const theme = this.currentTheme;
         if (theme && typeof theme.generateBackground === 'function') {
             const rng = new SeededRng(this.backgroundSeed >>> 0);
-            theme.generateBackground(sctx, this.canvasWidth, this.canvasHeight, rng);
+            theme.generateBackground(bgctx, this.canvasWidth, this.canvasHeight, rng);
         } else {
-            sctx.fillStyle = '#87ceeb';
-            sctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+            bgctx.fillStyle = '#87ceeb';
+            bgctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         }
-        // 2. On top: platforms and back decorations, both rendered through
-        //    the active theme by the static render systems.
-        this.ecs.renderStatic(sctx);
+        // 2. Props layer: platforms + back decorations on a transparent
+        //    base so the back-dynamic sky entities (drawn between the two
+        //    canvases in renderWorld) remain visible behind them.
+        const pctx = this.propsCtx;
+        pctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.ecs.renderStatic(pctx);
         this._staticLayerDirty = false;
     }
 

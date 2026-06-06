@@ -46,53 +46,96 @@ const HIGH_CLOUD = {
 };
 
 // ---- Flying insect ------------------------------------------------------
+//
+// At ~10 px the silhouette must read as "fly" with only a handful of
+// pixels: a small dark head + slim elongated body + two translucent
+// wings flashing out to the sides. The two frames swap wing positions
+// quickly (40 ms each) to suggest a fast buzzing flap.
 
-function _drawInsectBodyA(ctx, x, y, w, h) {
+function _drawFlyWingsOut(ctx, x, y, w, h) {
     const cx = x + w / 2;
-    const cy = y + h / 2;
-    ctx.fillStyle = '#1d1d1d';
+    const cy = y + h * 0.55;
+
+    // Wings stretched horizontally outward, slightly back-swept.
+    ctx.fillStyle = 'rgba(225, 230, 240, 0.55)';
     ctx.beginPath();
-    ctx.ellipse(cx, cy, w * 0.32, h * 0.32, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Wings up
-    ctx.fillStyle = 'rgba(220, 220, 230, 0.55)';
-    ctx.beginPath();
-    ctx.ellipse(cx - w * 0.25, cy - h * 0.25, w * 0.22, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx - w * 0.38, cy - h * 0.05, w * 0.36, h * 0.18, -0.25, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(cx + w * 0.25, cy - h * 0.25, w * 0.22, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + w * 0.38, cy - h * 0.05, w * 0.36, h * 0.18,  0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Slim elongated body (thorax + abdomen).
+    ctx.fillStyle = '#161616';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + h * 0.05, w * 0.13, h * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head dot at the front (top of body).
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath();
+    ctx.arc(cx, cy - h * 0.30, Math.max(1, w * 0.13), 0, Math.PI * 2);
     ctx.fill();
 }
 
-function _drawInsectBodyB(ctx, x, y, w, h) {
+function _drawFlyWingsUp(ctx, x, y, w, h) {
     const cx = x + w / 2;
-    const cy = y + h / 2;
-    ctx.fillStyle = '#1d1d1d';
+    const cy = y + h * 0.55;
+
+    // Wings raised upright (motion-blur suggestion).
+    ctx.fillStyle = 'rgba(225, 230, 240, 0.40)';
     ctx.beginPath();
-    ctx.ellipse(cx, cy, w * 0.32, h * 0.32, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Wings down
-    ctx.fillStyle = 'rgba(220, 220, 230, 0.55)';
-    ctx.beginPath();
-    ctx.ellipse(cx - w * 0.25, cy + h * 0.20, w * 0.22, h * 0.10, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx - w * 0.18, cy - h * 0.32, w * 0.20, h * 0.20, -1.05, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(cx + w * 0.25, cy + h * 0.20, w * 0.22, h * 0.10, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + w * 0.18, cy - h * 0.32, w * 0.20, h * 0.20,  1.05, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body (slightly tucked while wings are up).
+    ctx.fillStyle = '#161616';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + h * 0.05, w * 0.13, h * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath();
+    ctx.arc(cx, cy - h * 0.30, Math.max(1, w * 0.13), 0, Math.PI * 2);
     ctx.fill();
 }
 
 const INSECT_BUZZ_ANIMATION = new Animation('insectBuzz', [
-    new SpriteFrame(55, _drawInsectBodyA),
-    new SpriteFrame(55, _drawInsectBodyB)
+    new SpriteFrame(40, _drawFlyWingsOut),
+    new SpriteFrame(40, _drawFlyWingsUp)
 ], true);
 
-// Behavior constants.
-const INSECT_DART_SPEED   = 90;     // px/s while darting toward a target
-const INSECT_ARRIVE_DIST  = 6;      // px — within this, switch to hover
-const INSECT_NEIGHBOR_R   = 90;     // px — boids alignment/cohesion radius
-const INSECT_SEPARATION_R = 28;     // px — too-close avoidance radius
-const INSECT_MAX_SPEED    = 110;
-const INSECT_BOIDS_ACCEL  = 60;     // px/s^2 max steering force magnitude
+// Behavior constants. Dart speed is sampled per leg (each new dart picks
+// its own speed inside this range) so motion has texture; the minimum is
+// well above the player's casual eye-track speed so even slow darts feel
+// snappy.
+const INSECT_MIN_DART_SPEED = 240;
+const INSECT_MAX_DART_SPEED = 340;
+
+// Dart hops are now short: a fly bounces around in a small neighborhood
+// rather than racing across the screen. Together with the shorter linger
+// time this gives a fidgety, fly-like rhythm.
+const INSECT_MIN_DART_DIST  = 25;
+const INSECT_MAX_DART_DIST  = 90;
+
+const INSECT_ARRIVE_DIST    = 5;    // px — within this, switch to hover
+const INSECT_MIN_HOVER      = 0.15; // s — minimum linger after a dart
+const INSECT_MAX_HOVER      = 0.7;  // s — maximum linger after a dart
+
+// Follower-mode steering. Followers seek the leader (plus a small
+// per-follower offset) with proportional accel and separate from each
+// other; SEPARATION_R is the only neighbor radius still in use.
+const INSECT_SEPARATION_R   = 18;
+const INSECT_MAX_SPEED      = 360;
+const INSECT_FOLLOW_ACCEL   = 220;  // px/s^2 max steering force magnitude
+
+// Chance per pick that a solo / leader fly picks an exit target beyond
+// the screen instead of an interior one, so the population turns over
+// and doesn't pin itself indefinitely against the budget.
+const INSECT_EXIT_PROB      = 0.30;
 
 function _countInsects(siblings) {
     let n = 0;
@@ -116,7 +159,9 @@ function _insectDartBehavior(transform, state, dt, ctx) {
         }
         return;
     }
-    // dart mode
+    // Dart mode. Even when the target is off-screen the arrive check
+    // never fires before isFullyOffscreen despawns the entity, so exit
+    // targets naturally retire the fly.
     const cx = transform.x + transform.width / 2;
     const cy = transform.y + transform.height / 2;
     const dx = state.targetX - cx;
@@ -124,12 +169,13 @@ function _insectDartBehavior(transform, state, dt, ctx) {
     const dist = Math.hypot(dx, dy);
     if (dist < INSECT_ARRIVE_DIST) {
         state.mode = 'hover';
-        state.hoverTimer = randomRange(1.0, 2.5);
+        state.hoverTimer = randomRange(INSECT_MIN_HOVER, INSECT_MAX_HOVER);
         state.vx = 0;
         state.vy = 0;
         return;
     }
-    const inv = INSECT_DART_SPEED / dist;
+    const speed = state.dartSpeed ?? INSECT_MIN_DART_SPEED;
+    const inv = speed / dist;
     state.vx = dx * inv;
     state.vy = dy * inv;
     transform.x += state.vx * dt;
@@ -137,110 +183,177 @@ function _insectDartBehavior(transform, state, dt, ctx) {
 }
 
 function _insectPickNewTarget(transform, state, ctx) {
-    const pad = 30;
-    state.targetX = randomRange(pad, ctx.canvasWidth  - pad);
-    state.targetY = randomRange(pad, ctx.canvasHeight * 0.7);
+    // Each dart leg gets its own speed so motion has texture; the
+    // minimum is well above the player's casual eye-track speed.
+    state.dartSpeed = randomRange(INSECT_MIN_DART_SPEED, INSECT_MAX_DART_SPEED);
+
+    // Most picks land inside the screen; INSECT_EXIT_PROB of the time
+    // we deliberately aim past one of the four edges so the fly darts
+    // off and despawns, freeing budget for fresh spawns. Exit targets
+    // bypass the short-hop constraint by design.
+    if (Math.random() < INSECT_EXIT_PROB) {
+        const m = 40;
+        const edge = Math.floor(Math.random() * 4);
+        switch (edge) {
+            case 0: // top
+                state.targetX = randomRange(0, ctx.canvasWidth);
+                state.targetY = -m;
+                break;
+            case 1: // right
+                state.targetX = ctx.canvasWidth + m;
+                state.targetY = randomRange(0, ctx.canvasHeight);
+                break;
+            case 2: // bottom
+                state.targetX = randomRange(0, ctx.canvasWidth);
+                state.targetY = ctx.canvasHeight + m;
+                break;
+            default: // left
+                state.targetX = -m;
+                state.targetY = randomRange(0, ctx.canvasHeight);
+                break;
+        }
+        state.mode = 'dart';
+        return;
+    }
+
+    // Short-hop interior pick: sample a point inside [MIN, MAX] from the
+    // current position, retrying up to 8 angles to land inside the
+    // screen. Falls back to a clamped point if every retry misses.
+    const cx = transform.x + transform.width  / 2;
+    const cy = transform.y + transform.height / 2;
+    const pad = 20;
+    const maxY = ctx.canvasHeight * 0.7;
+    for (let i = 0; i < 8; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const hop = randomRange(INSECT_MIN_DART_DIST, INSECT_MAX_DART_DIST);
+        const tx = cx + Math.cos(angle) * hop;
+        const ty = cy + Math.sin(angle) * hop;
+        if (tx >= pad && tx <= ctx.canvasWidth - pad
+         && ty >= pad && ty <= maxY) {
+            state.targetX = tx;
+            state.targetY = ty;
+            state.mode = 'dart';
+            return;
+        }
+    }
+    // Fallback: clamp a hop direction to the screen.
+    state.targetX = Math.max(pad, Math.min(ctx.canvasWidth - pad,
+        cx + randomRange(-INSECT_MAX_DART_DIST, INSECT_MAX_DART_DIST)));
+    state.targetY = Math.max(pad, Math.min(maxY,
+        cy + randomRange(-INSECT_MAX_DART_DIST, INSECT_MAX_DART_DIST)));
     state.mode = 'dart';
 }
 
-function _insectSwarmBehavior(transform, state, dt, ctx) {
-    const myCx = transform.x + transform.width / 2;
+// Find the swarm leader: the insect entity with the lowest entity.id
+// among all currently live flying insects. Re-evaluated every frame, so
+// when the current leader despawns the next-lowest naturally takes over.
+function _findLeaderEntity(siblings) {
+    let leader = null;
+    let leaderId = Infinity;
+    for (const e of siblings) {
+        const s = e.getComponent('SkyElement');
+        if (!s || s.kindId !== 'flyingInsect') continue;
+        if (e.id < leaderId) {
+            leaderId = e.id;
+            leader = e;
+        }
+    }
+    return leader;
+}
+
+// Follower: steer toward (leader center + a small persistent per-follower
+// offset) with separation from other insects to avoid stacking. The
+// followers don't run their own dart/hover loop — they're locked to the
+// leader's wanderings.
+function _insectFollowBehavior(transform, state, dt, ctx, leaderEntity) {
+    if (state.followOffsetX == null) {
+        state.followOffsetX = randomRange(-26, 26);
+        state.followOffsetY = randomRange(-18, 18);
+    }
+    const leaderT = leaderEntity.getComponent('Transform');
+    const targetX = leaderT.x + leaderT.width  / 2 + state.followOffsetX;
+    const targetY = leaderT.y + leaderT.height / 2 + state.followOffsetY;
+
+    const myCx = transform.x + transform.width  / 2;
     const myCy = transform.y + transform.height / 2;
+    const dx = targetX - myCx;
+    const dy = targetY - myCy;
+    const dist = Math.hypot(dx, dy);
 
-    // Accumulators for separation, alignment, cohesion.
-    let sepX = 0, sepY = 0, sepN = 0;
-    let aliX = 0, aliY = 0, aliN = 0;
-    let cohX = 0, cohY = 0, cohN = 0;
+    let ax = 0;
+    let ay = 0;
+    if (dist > 0.5) {
+        const inv = INSECT_FOLLOW_ACCEL / dist;
+        ax += dx * inv;
+        ay += dy * inv;
+    }
 
+    // Separation from other insects (including the leader) so followers
+    // don't visually overlap.
     for (const e of ctx.siblings) {
+        if (e === state.selfEntity) continue;
         const other = e.getComponent('SkyElement');
         if (!other || other.kindId !== 'flyingInsect') continue;
-        if (other === state.self) continue;
         const ot = e.getComponent('Transform');
-        const otherCx = ot.x + ot.width / 2;
-        const otherCy = ot.y + ot.height / 2;
-        const dx = myCx - otherCx;
-        const dy = myCy - otherCy;
-        const d2 = dx * dx + dy * dy;
-        if (d2 > INSECT_NEIGHBOR_R * INSECT_NEIGHBOR_R) continue;
-
+        const ddx = myCx - (ot.x + ot.width  / 2);
+        const ddy = myCy - (ot.y + ot.height / 2);
+        const d2 = ddx * ddx + ddy * ddy;
         if (d2 < INSECT_SEPARATION_R * INSECT_SEPARATION_R && d2 > 0.001) {
             const inv = 1 / Math.sqrt(d2);
-            sepX += dx * inv;
-            sepY += dy * inv;
-            sepN++;
+            ax += ddx * inv * 140;
+            ay += ddy * inv * 140;
         }
-        aliX += other.state.vx ?? 0;
-        aliY += other.state.vy ?? 0;
-        aliN++;
-        cohX += otherCx;
-        cohY += otherCy;
-        cohN++;
     }
-
-    let ax = 0, ay = 0;
-    if (sepN > 0) {
-        ax += (sepX / sepN) * 2.5;
-        ay += (sepY / sepN) * 2.5;
-    }
-    if (aliN > 0) {
-        ax += ((aliX / aliN) - state.vx) * 0.6;
-        ay += ((aliY / aliN) - state.vy) * 0.6;
-    }
-    if (cohN > 0) {
-        ax += ((cohX / cohN) - myCx) * 0.02;
-        ay += ((cohY / cohN) - myCy) * 0.02;
-    }
-    // Random jitter to keep the swarm feeling alive.
-    ax += randomRange(-1, 1) * 20;
-    ay += randomRange(-1, 1) * 20;
 
     // Cap steering accel.
     const amag = Math.hypot(ax, ay);
-    if (amag > INSECT_BOIDS_ACCEL) {
-        ax = (ax / amag) * INSECT_BOIDS_ACCEL;
-        ay = (ay / amag) * INSECT_BOIDS_ACCEL;
+    const maxAccel = INSECT_FOLLOW_ACCEL * 2;
+    if (amag > maxAccel) {
+        ax = (ax / amag) * maxAccel;
+        ay = (ay / amag) * maxAccel;
     }
 
     state.vx += ax * dt;
     state.vy += ay * dt;
 
-    // Cap speed.
     const vmag = Math.hypot(state.vx, state.vy);
     if (vmag > INSECT_MAX_SPEED) {
         state.vx = (state.vx / vmag) * INSECT_MAX_SPEED;
         state.vy = (state.vy / vmag) * INSECT_MAX_SPEED;
     }
 
-    // Soft containment: nudge back toward screen interior so the swarm
-    // doesn't disperse off-screen the moment it forms.
-    const pad = 40;
-    if (transform.x < pad)                              state.vx += 30 * dt * (pad - transform.x);
-    if (transform.x + transform.width > ctx.canvasWidth - pad)
-        state.vx -= 30 * dt * (transform.x + transform.width - (ctx.canvasWidth - pad));
-    if (transform.y < pad)                              state.vy += 30 * dt * (pad - transform.y);
-    if (transform.y + transform.height > ctx.canvasHeight * 0.75)
-        state.vy -= 30 * dt * (transform.y + transform.height - ctx.canvasHeight * 0.75);
-
     transform.x += state.vx * dt;
     transform.y += state.vy * dt;
 }
 
 function _insectBehavior(transform, state, dt, ctx) {
-    // First tick: stash a reference to "self" so swarm math can skip it,
-    // and seed a starting target so darts don't go to (0,0).
-    if (!state.self) {
+    // First tick: stash a reference to this insect's own entity so the
+    // swarm leader lookup can identify "self", and seed a starting dart
+    // target so darts don't aim at (0,0).
+    if (!state.selfEntity) {
         for (const e of ctx.siblings) {
             const s = e.getComponent('SkyElement');
-            if (s && s.state === state) { state.self = s; break; }
+            if (s && s.state === state) {
+                state.selfEntity = e;
+                break;
+            }
         }
         if (state.mode === 'dart' && state.targetX == null) {
             _insectPickNewTarget(transform, state, ctx);
         }
     }
+
     const insectCount = _countInsects(ctx.siblings);
     if (insectCount >= 2) {
-        _insectSwarmBehavior(transform, state, dt, ctx);
+        const leader = _findLeaderEntity(ctx.siblings);
+        if (leader === state.selfEntity) {
+            // I'm the leader — run the dart/hover loop.
+            _insectDartBehavior(transform, state, dt, ctx);
+        } else if (leader) {
+            _insectFollowBehavior(transform, state, dt, ctx, leader);
+        } else {
+            _insectDartBehavior(transform, state, dt, ctx);
+        }
     } else {
         _insectDartBehavior(transform, state, dt, ctx);
     }
@@ -256,23 +369,30 @@ const FLYING_INSECT = {
     id: 'flyingInsect',
     spawnPerSecond: 0.25,
     spawn(canvasW, canvasH, offscreen) {
-        const size = randomRange(14, 20);
+        // Smaller bounding box so flies read as proper flies instead of
+        // chunky bugs. Width slightly larger than height keeps the wing
+        // ellipses room to extend sideways.
+        const width  = randomRange(8, 12);
+        const height = width * 0.95;
         const transform = offscreen
-            ? spawnAtAnyEdge(canvasW, canvasH, size, size)
-            : { x: randomRange(20, canvasW - 20 - size),
+            ? spawnAtAnyEdge(canvasW, canvasH, width, height)
+            : { x: randomRange(20, canvasW - 20 - width),
                 y: randomRange(20, canvasH * 0.65),
-                width: size, height: size };
+                width, height };
         const animator = new Animator(INSECT_BUZZ_ANIMATION);
         const state = {
-            vx: randomRange(-40, 40),
-            vy: randomRange(-30, 30),
+            vx: randomRange(-60, 60),
+            vy: randomRange(-40, 40),
             mode: 'dart',
             targetX: null,
             targetY: null,
+            dartSpeed: INSECT_MIN_DART_SPEED, // overwritten on first pick
             hoverTimer: 0,
             bobTime: randomRange(0, Math.PI * 2),
+            followOffsetX: null,              // lazily set when first following
+            followOffsetY: null,
             animator,
-            self: null
+            selfEntity: null                  // resolved on first behavior tick
         };
         return { transform, state, animator };
     },

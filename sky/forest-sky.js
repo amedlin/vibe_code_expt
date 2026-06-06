@@ -7,19 +7,21 @@
 
 // ---- Puffy cloud --------------------------------------------------------
 
-function _drawPuffyCloud(ctx, transform, _state) {
+function _drawPuffyCloud(ctx, transform, state) {
     const { x, y, width, height } = transform;
     const cx = x + width / 2;
     const cy = y + height / 2;
 
-    // Soft drop shadow (slightly larger, lower, low-alpha ellipse).
-    ctx.fillStyle = 'rgba(120, 140, 160, 0.18)';
+    // Soft drop shadow — per-cloud alpha jitter keeps a group of clouds
+    // from reading as identical stamps.
+    ctx.fillStyle = `rgba(120, 140, 160, ${state.shadowAlpha})`;
     ctx.beginPath();
     ctx.ellipse(cx, cy + height * 0.15, width * 0.45, height * 0.32, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Three overlapping white puffs.
-    ctx.fillStyle = '#ffffff';
+    // Three overlapping puffs in the cloud's individual body color
+    // (subtle warm/cool tint + brightness variation per cloud).
+    ctx.fillStyle = state.bodyColor;
     ctx.beginPath();
     ctx.ellipse(cx - width * 0.20, cy + height * 0.05, width * 0.28, height * 0.30, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -29,6 +31,19 @@ function _drawPuffyCloud(ctx, transform, _state) {
     ctx.beginPath();
     ctx.ellipse(cx, cy - height * 0.05, width * 0.34, height * 0.36, 0, 0, Math.PI * 2);
     ctx.fill();
+}
+
+// Pick a per-cloud body color: brightness in [0.92, 1.0] times white,
+// then add a small warm or cool tint by nudging individual channels so
+// some clouds read slightly cream and others slightly cool.
+function _randomCloudBodyColor() {
+    const brightness = randomRange(0.92, 1.0);
+    const base = Math.round(255 * brightness);
+    const warm = Math.random() < 0.5;
+    const r = Math.min(255, base + (warm ? randomRange(0, 6)  : 0));
+    const g = Math.min(255, base + (warm ? randomRange(0, 3)  : randomRange(0, 2)));
+    const b = Math.min(255, base + (warm ? 0                  : randomRange(0, 8)));
+    return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 }
 
 const PUFFY_CLOUD = {
@@ -41,8 +56,11 @@ const PUFFY_CLOUD = {
             canvasW, canvasH, width, height, [0.05, 0.40], offscreen
         );
         const state = {
-            vx: randomRange(-45, -25),
-            vy: 0
+            // Halved from [-45, -25] so clouds drift at a calmer pace.
+            vx: randomRange(-22, -12),
+            vy: 0,
+            bodyColor:   _randomCloudBodyColor(),
+            shadowAlpha: randomRange(0.12, 0.22)
         };
         return { transform, state };
     },
