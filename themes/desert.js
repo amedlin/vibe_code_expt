@@ -29,6 +29,11 @@
             platformSandTop:'#e0b27e'
         },
 
+        skyElements: {
+            maxTotal: 7,
+            kinds: DESERT_SKY_KINDS
+        },
+
         generateBackground(ctx, width, height, rng) {
             generateDesertBackground(ctx, width, height, rng, this.palette);
         },

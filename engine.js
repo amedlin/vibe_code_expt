@@ -84,9 +84,15 @@ class GameEngine {
         this.levelManager = new LevelManager(this);
         this.camera = new Camera(0, 0, this.canvasWidth, this.canvasHeight);
 
-        // Any change to the entity set invalidates the cached static layer
-        // and the inventory snapshot.
-        this.ecs.onEntitySetChanged(() => {
+        // Most entity-set changes invalidate the cached static layer and
+        // the inventory snapshot. Ambient entities (sky elements, etc.)
+        // opt out via `{ affectsStaticLayer: false }` on create/destroy
+        // so their frequent churn does not force the procedural background
+        // to regenerate.
+        this.ecs.onEntitySetChanged((event) => {
+            if (event && event.affectsStaticLayer === false) {
+                return;
+            }
             this._staticLayerDirty = true;
             this._inventoryDirty = true;
         });
@@ -117,11 +123,24 @@ class GameEngine {
 
         const themeProvider = () => this.currentTheme;
 
+        // Sky element spawn + behavior. Sky entities are ambient (no
+        // physics / collisions / AI) and their churn does not invalidate
+        // the cached static background.
+        this.ecs.addUpdateSystem(new SkySpawnSystem(
+            themeProvider, this.canvasWidth, this.canvasHeight, this
+        ));
+        this.ecs.addUpdateSystem(new SkyBehaviorSystem(
+            this.canvasWidth, this.canvasHeight, this
+        ));
+
         // Static back layer — never changes between level loads.
         this.ecs.addStaticRenderSystem(new PlatformRenderSystem(this.camera, themeProvider));
         this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back', themeProvider));
 
-        // Dynamic layer — re-rendered each frame while playing.
+        // Dynamic layer — re-rendered each frame while playing. SkyRender
+        // is first so animated sky paints above the static background but
+        // behind the player, tangrams, and front decorations.
+        this.ecs.addRenderSystem(new SkyRenderSystem());
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));

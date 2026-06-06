@@ -29,6 +29,11 @@
             treesNear:      '#3f5e4a'
         },
 
+        skyElements: {
+            maxTotal: 5,
+            kinds: FOREST_SKY_KINDS
+        },
+
         // Delegated to the dedicated forest background module so the
         // theme file stays focused on palette + role->sprite mapping.
         generateBackground(ctx, width, height, rng) {

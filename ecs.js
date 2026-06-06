@@ -78,7 +78,11 @@ class ECS {
         this.entitySetListeners.push(listener);
     }
 
-    _notifyEntitySetChanged() {
+    // event.affectsStaticLayer is consulted by external listeners (notably
+    // the engine's cached-background invalidator). System entity caches
+    // always invalidate regardless — new entities must still be picked up
+    // by their respective systems on the next frame.
+    _notifyEntitySetChanged(event = { affectsStaticLayer: true }) {
         for (const system of this.updateSystems) {
             system.invalidateEntityCache();
         }
@@ -89,22 +93,25 @@ class ECS {
             system.invalidateEntityCache();
         }
         for (const listener of this.entitySetListeners) {
-            listener();
+            listener(event);
         }
     }
 
-    createEntity() {
+    // Pass `{ affectsStaticLayer: false }` for ambient entities (sky
+    // elements, particles, etc.) that should not force the cached static
+    // background canvas to regenerate when they spawn or despawn.
+    createEntity({ affectsStaticLayer = true } = {}) {
         const entity = new Entity(this.nextEntityId++);
         this.entities.push(entity);
-        this._notifyEntitySetChanged();
+        this._notifyEntitySetChanged({ affectsStaticLayer });
         return entity;
     }
 
-    destroyEntity(entity) {
+    destroyEntity(entity, { affectsStaticLayer = true } = {}) {
         const idx = this.entities.indexOf(entity);
         if (idx !== -1) {
             this.entities.splice(idx, 1);
-            this._notifyEntitySetChanged();
+            this._notifyEntitySetChanged({ affectsStaticLayer });
         }
     }
 
@@ -152,7 +159,7 @@ class ECS {
         this.entities = [];
         this.playerEntity = null;
         this.nextEntityId = 0;
-        this._notifyEntitySetChanged();
+        this._notifyEntitySetChanged({ affectsStaticLayer: true });
     }
 
     clear() {

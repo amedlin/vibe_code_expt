@@ -27,6 +27,11 @@
             platformSnow:   '#ffffff'
         },
 
+        skyElements: {
+            maxTotal: 17,
+            kinds: TUNDRA_SKY_KINDS
+        },
+
         generateBackground(ctx, width, height, rng) {
             generateTundraBackground(ctx, width, height, rng, this.palette);
         },
