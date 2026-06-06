@@ -180,6 +180,10 @@ class GameEngine {
             this.controlSourceSelect.addEventListener('change', (e) => {
                 this.inputSourceManager.setSource(e.target.value);
                 resetAIStateOnEntities(this.ecs.entities);
+                // Drop focus so keyboard shortcuts (e.g. 'p' for pause)
+                // don't trigger the dropdown's native typeahead and
+                // accidentally switch the selection.
+                e.target.blur();
             });
         }
     }
