@@ -1,4 +1,12 @@
-const DECORATION_SPRITES = {};
+// Shared decoration sprite helpers.
+//
+// This file provides reusable building blocks for themes to construct their
+// prop sprite sets. It no longer owns a global sprite cache — each theme
+// builds and owns its own sprites (see themes/forest.js for an example).
+//
+// The draw* functions below produce the forest theme's classic look. New
+// themes can either reuse these or define their own draw functions for the
+// same semantic roles (grass / shrub / tree).
 
 function buildDecorationSprite(width, height, drawFn) {
     const canvas = document.createElement('canvas');
@@ -60,15 +68,3 @@ function drawTreeSprite(ctx, w, h) {
     ctx.ellipse(w * 0.5, h * 0.42, w * 0.32, h * 0.22, 0, 0, Math.PI * 2);
     ctx.fill();
 }
-
-function initDecorationSprites() {
-    DECORATION_SPRITES.grass = buildDecorationSprite(44, 28, drawGrassSprite);
-    DECORATION_SPRITES.shrub = buildDecorationSprite(52, 40, drawShrubSprite);
-    DECORATION_SPRITES.tree = buildDecorationSprite(64, 96, drawTreeSprite);
-}
-
-function getDecorationSprite(type) {
-    return DECORATION_SPRITES[type] ?? null;
-}
-
-initDecorationSprites();

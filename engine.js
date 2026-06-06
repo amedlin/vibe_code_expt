@@ -69,6 +69,12 @@ class GameEngine {
         this.staticLayerCanvas = document.createElement('canvas');
         this.staticLayerCtx = this.staticLayerCanvas.getContext('2d');
 
+        // The active theme is resolved by LevelManager at level spawn time
+        // and stored here so render systems can read it via the getter that
+        // gets injected at construction. Null until a level is loaded.
+        this.currentTheme = null;
+        this.levelEntity = null;
+
         this.ecs = new ECS();
         this.stateManager = new StateManager();
         this.levelManager = new LevelManager(this);
@@ -105,14 +111,16 @@ class GameEngine {
         ));
         this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
 
+        const themeProvider = () => this.currentTheme;
+
         // Static back layer — never changes between level loads.
-        this.ecs.addStaticRenderSystem(new RenderSystem(this.camera));
-        this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back'));
+        this.ecs.addStaticRenderSystem(new PlatformRenderSystem(this.camera, themeProvider));
+        this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back', themeProvider));
 
         // Dynamic layer — re-rendered each frame while playing.
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
-        this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front'));
+        this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));
 
         this.inventoryRenderSystem = new InventoryRenderSystem(
             () => this.ecs.playerEntity,
@@ -133,6 +141,8 @@ class GameEngine {
         this.inputBuffer.keys = {};
         this.lastLevelFile = null;
         this.currentLevelName = null;
+        this.currentTheme = null;
+        this.levelEntity = null;
         this.updateRestartButton();
         this.setLevelHeading(null);
         this.clearInventoryPanel();
@@ -342,8 +352,18 @@ class GameEngine {
             this.staticLayerCanvas.height = this.canvasHeight;
         }
         const sctx = this.staticLayerCtx;
-        sctx.fillStyle = '#87ceeb';
-        sctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        // 1. Backmost: theme-provided procedural background. Falls back to
+        //    a plain sky fill if no theme is active yet (e.g. before the
+        //    first level loads).
+        const theme = this.currentTheme;
+        if (theme && typeof theme.generateBackground === 'function') {
+            theme.generateBackground(sctx, this.canvasWidth, this.canvasHeight);
+        } else {
+            sctx.fillStyle = '#87ceeb';
+            sctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        }
+        // 2. On top: platforms and back decorations, both rendered through
+        //    the active theme by the static render systems.
         this.ecs.renderStatic(sctx);
         this._staticLayerDirty = false;
     }

@@ -1,7 +1,8 @@
-const DECORATION_TYPES = ['grass', 'tree', 'shrub'];
-
+// Decoration "types" in a level file are now semantic prop roles. The
+// active theme decides what each role looks like, and the level remains
+// portable across themes. The canonical role list lives in themes.js.
 function isDecorationType(type) {
-    return DECORATION_TYPES.includes(type);
+    return isThemePropRole(type);
 }
 
 // Find platform top (y) to stand on at anchorX; optional yHint picks among stacked overlaps.

@@ -8,7 +8,9 @@ class TransformComponent {
     }
 }
 
-// Render component - encapsulates rendering behavior
+// Render component - encapsulates rendering behavior for ad-hoc renderables
+// (kept for future use; platforms now go through PlatformRenderSystem and
+// the active theme).
 class RenderComponent {
     constructor(renderFn) {
         this.renderFn = renderFn;
@@ -32,21 +34,27 @@ class AnimatedRenderComponent {
     }
 }
 
-// Render system - handles rendering static renderable entities
-class RenderSystem extends System {
-    constructor(camera) {
-        super(['Transform', 'Render']);
+// PlatformRenderSystem - draws every entity tagged with PlatformComponent
+// using the active theme's platform draw function. Reads the theme from a
+// caller-supplied getter (symmetric with the camera injection) so the
+// system stays decoupled from the engine.
+class PlatformRenderSystem extends System {
+    constructor(camera, themeProvider) {
+        super(['Transform', 'Platform']);
         this.camera = camera;
+        this.themeProvider = themeProvider;
     }
 
     update(deltaTime, entities, ctx) {
-        const staticEntities = this.getEntitiesWithComponents(entities);
-        for (let entity of staticEntities) {
+        const theme = this.themeProvider();
+        if (!theme || typeof theme.drawPlatform !== 'function') {
+            return;
+        }
+        const platforms = this.getEntitiesWithComponents(entities);
+        for (const entity of platforms) {
             const transform = entity.getComponent('Transform');
-            const render = entity.getComponent('Render');
-
-            const screenPos = this.camera.worldToScreen(transform.x, transform.y);
-            render.render(ctx, screenPos.x, screenPos.y, transform.width, transform.height);
+            const screen = this.camera.worldToScreen(transform.x, transform.y);
+            theme.drawPlatform(ctx, screen.x, screen.y, transform.width, transform.height);
         }
     }
 }
@@ -64,11 +72,9 @@ class AnimatedRenderSystem extends System {
             const transform = entity.getComponent('Transform');
             const animatedRender = entity.getComponent('AnimatedRender');
 
-            // Update animator
             const animator = animatedRender.animator;
             animator.update(deltaTime);
 
-            // Render
             const screenPos = this.camera.worldToScreen(transform.x, transform.y);
             animatedRender.render(ctx, screenPos.x, screenPos.y, transform.width, transform.height);
         }

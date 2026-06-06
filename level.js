@@ -1,7 +1,8 @@
 // Level class for managing level data and platform definitions
 class Level {
-    constructor(name, platforms = [], tangramPieces = [], decorations = []) {
+    constructor(name, themeId, platforms = [], tangramPieces = [], decorations = []) {
         this.name = name;
+        this.themeId = themeId ?? DEFAULT_THEME_ID;
         this.platforms = platforms;
         this.tangramPieces = tangramPieces;
         this.decorations = decorations;
@@ -13,6 +14,7 @@ class Level {
         const tangramPieces = [];
         const decorations = [];
         let levelName = 'Unnamed Level';
+        let themeId = DEFAULT_THEME_ID;
 
         for (let line of lines) {
             line = line.trim();
@@ -22,6 +24,11 @@ class Level {
                     const raw = line.replace(/^#\s*Level\s*[-:]?\s*/i, '').trim();
                     if (raw) {
                         levelName = raw;
+                    }
+                } else if (/^#\s*Theme\b/i.test(line)) {
+                    const raw = line.replace(/^#\s*Theme\s*[-:]?\s*/i, '').trim();
+                    if (raw) {
+                        themeId = raw;
                     }
                 }
                 continue;
@@ -64,6 +71,6 @@ class Level {
             }
         }
 
-        return new Level(levelName, platforms, tangramPieces, decorations);
+        return new Level(levelName, themeId, platforms, tangramPieces, decorations);
     }
 }
