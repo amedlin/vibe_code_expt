@@ -82,3 +82,35 @@ function drawSunDisc(ctx, cx, cy, radius, color, haloColor) {
     ctx.arc(cx, cy, outer, 0, Math.PI * 2);
     ctx.fill();
 }
+
+// Roll N triangular peaks with random center x, peak height, and half-width.
+// Peaks placed slightly off-canvas blend silhouettes past the edges instead
+// of suspiciously cutting off at x=0 or x=width. Use with peakProfile() as
+// the profileFn for drawSilhouetteLayer().
+function placePeaks(rng, count, xRange, heightRange, halfWidthRange) {
+    const peaks = [];
+    for (let i = 0; i < count; i++) {
+        peaks.push({
+            x:    rng.range(xRange[0], xRange[1]),
+            h:    rng.range(heightRange[0], heightRange[1]),
+            half: rng.range(halfWidthRange[0], halfWidthRange[1])
+        });
+    }
+    return peaks;
+}
+
+// Silhouette of a set of triangular peaks at column x. Returns the highest
+// (lowest-y) point of any peak that covers this x, or baseY when no peak
+// overlaps. Linear falloff from peak center to half-width gives the classic
+// jagged mountain look; overlapping peaks naturally produce ridges.
+function peakProfile(x, peaks, baseY) {
+    let highestY = baseY;
+    for (const p of peaks) {
+        const dist = Math.abs(x - p.x);
+        if (dist < p.half) {
+            const y = baseY - p.h * (1 - dist / p.half);
+            if (y < highestY) highestY = y;
+        }
+    }
+    return highestY;
+}

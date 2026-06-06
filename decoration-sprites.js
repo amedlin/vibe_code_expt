@@ -68,3 +68,63 @@ function drawTreeSprite(ctx, w, h) {
     ctx.ellipse(w * 0.5, h * 0.42, w * 0.32, h * 0.22, 0, 0, Math.PI * 2);
     ctx.fill();
 }
+
+// --- Tundra prop sprites ------------------------------------------------
+
+function drawSnowTuftSprite(ctx, w, h) {
+    // Soft white mound with a faint cool underside.
+    ctx.fillStyle = '#dde9f1';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.85, w * 0.45, h * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.70, w * 0.40, h * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawIceRockSprite(ctx, w, h) {
+    // Two stacked rock blobs in cool gray, with a snow cap on top.
+    ctx.fillStyle = '#7d92a0';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.78, w * 0.46, h * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#9caab6';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.42, h * 0.55, w * 0.34, h * 0.26, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f3f7fa';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.46, h * 0.40, w * 0.30, h * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawSnowPineSprite(ctx, w, h) {
+    // Trunk
+    ctx.fillStyle = '#3d2f24';
+    ctx.fillRect(w * 0.46, h * 0.72, w * 0.08, h * 0.28);
+    // Three tiers, each a green triangle with a slim snow-frosted top.
+    const tiers = [
+        { topY: h * 0.04, botY: h * 0.34, half: w * 0.50 },
+        { topY: h * 0.26, botY: h * 0.56, half: w * 0.42 },
+        { topY: h * 0.48, botY: h * 0.78, half: w * 0.36 }
+    ];
+    for (const t of tiers) {
+        ctx.fillStyle = '#2c4a3d';
+        ctx.beginPath();
+        ctx.moveTo(w * 0.5, t.topY);
+        ctx.lineTo(w * 0.5 + t.half, t.botY);
+        ctx.lineTo(w * 0.5 - t.half, t.botY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#eef4f8';
+        const snowFrac = 0.35;
+        const snowBotY = t.topY + (t.botY - t.topY) * snowFrac;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.5, t.topY);
+        ctx.lineTo(w * 0.5 + t.half * snowFrac, snowBotY);
+        ctx.lineTo(w * 0.5 - t.half * snowFrac, snowBotY);
+        ctx.closePath();
+        ctx.fill();
+    }
+}
