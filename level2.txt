@@ -1,0 +1,46 @@
+# Level Beta
+# Trickier than Alpha: more vertical traversal, asymmetric tier heights,
+# and the top reward can only be reached after climbing both halves.
+# Platform: x, y, width, height
+# Tangram: piece_id, x, y
+# Decoration: grass | tree | shrub, x, optional_y_hint
+# Ground platform
+0, 570, 800, 30
+# Lower steps (slightly different heights so AI can hop laterally via jumps)
+50, 475, 120, 20
+600, 465, 120, 20
+# Mid ledges (split bridge)
+240, 385, 120, 20
+460, 375, 120, 20
+# Upper towers (small, harder targets)
+130, 290, 100, 20
+620, 280, 100, 20
+# Wide center plateau (the only way up to the top)
+280, 185, 240, 20
+# Top reward platform
+365, 90, 70, 20
+# Tangram pieces — spread across many platforms to force routing
+parallelogram, 365, 535
+large_tri_1, 70, 395
+large_tri_2, 620, 385
+small_tri_1, 270, 345
+small_tri_2, 490, 335
+medium_tri, 632, 224
+square, 378, 50
+# Set dressing — ground
+tree, 30, 570
+shrub, 200, 570
+grass, 280, 570
+tree, 380, 570
+shrub, 510, 570
+grass, 690, 570
+tree, 770, 570
+# Set dressing — platforms
+grass, 80, 475
+shrub, 620, 465
+grass, 280, 385
+grass, 470, 375
+shrub, 140, 290
+grass, 670, 280
+grass, 290, 185
+tree, 460, 185
