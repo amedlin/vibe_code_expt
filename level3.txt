@@ -1,0 +1,55 @@
+# Level Gamma
+# Theme: forest
+# Bilateral symmetry around the vertical center line x=400. Five tiers,
+# 100px apart vertically, with outer-pair and center platforms each tier.
+# Platform: x, y, width, height
+# Tangram: piece_id, x, y
+# Decoration: grass | tree | shrub, x, optional_y_hint
+
+# Ground (full width)
+0, 560, 800, 40
+
+# Tier 1 — low ledges: outer pair + center
+50, 460, 140, 20
+610, 460, 140, 20
+320, 460, 160, 20
+
+# Tier 2 — mid ledges: outer pair (no center, forces lateral routing)
+130, 360, 120, 20
+550, 360, 120, 20
+
+# Tier 3 — wide center plateau
+320, 260, 160, 20
+
+# Tier 4 — small peak reward
+360, 160, 80, 20
+
+# Tangram pieces — symmetric across x=400
+parallelogram, 360, 525
+large_tri_1, 80, 420
+large_tri_2, 650, 420
+small_tri_1, 155, 335
+small_tri_2, 580, 335
+medium_tri, 370, 215
+square, 375, 130
+
+# Decorations — ground line
+tree, 40
+tree, 696
+grass, 140
+grass, 616
+shrub, 260
+shrub, 488
+tree, 368
+
+# Decorations — tier 1 (y_hint snaps to platform with top y=460)
+grass, 80, 460
+grass, 676, 460
+grass, 380, 460
+
+# Decorations — tier 2 (y_hint snaps to platform with top y=360)
+grass, 160, 360
+grass, 596, 360
+
+# Decorations — tier 3 (y_hint snaps to plateau with top y=260)
+shrub, 374, 260
