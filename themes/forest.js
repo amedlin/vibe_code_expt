@@ -19,7 +19,14 @@
             skyGradientTop: '#9ed7f0',
             skyGradientBot: '#cfe9f5',
             platformFill:   '#8b7355',
-            platformEdge:   '#5d4e37'
+            platformEdge:   '#5d4e37',
+            // Background accents: progressively darker / more saturated
+            // greens convey atmospheric depth in the layered silhouettes.
+            sun:            '#fff4cf',
+            sunHalo:        'rgba(255, 244, 207, 0)',
+            hillsFar:       '#b7d4cb',
+            treesFar:       '#7fa68a',
+            treesNear:      '#3f5e4a'
         },
 
         // Delegated to the dedicated forest background module so the
