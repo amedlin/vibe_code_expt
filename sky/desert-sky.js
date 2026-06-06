@@ -135,25 +135,27 @@ const INSECT_MAX_HOVER      = 3.0;  // s — maximum linger after a dart
 // Swarm formation: two dart flies whose centres are within this
 // distance emergently form a swarm. The one with the lower entity id
 // becomes the leader (continues darting unchanged); the other switches
-// to orbit behavior. Leaders are locked at formation — once a fly has
-// followers it can never become someone else's follower.
-const INSECT_SWARM_RADIUS   = 55;
+// to swarm-steer behavior. Leaders are locked at formation — once a
+// fly has followers it can never become someone else's follower.
+const INSECT_SWARM_RADIUS    = 55;
 
-// Per-follower orbit parameters, sampled once when a fly joins a
-// swarm. Each follower picks its own values so the cluster looks like
-// several independently-tilted electron orbits around the leader rather
-// than a regimented formation. Omega is fast enough that the orbit
-// reads as buzzing rather than gliding.
-const INSECT_ORBIT_R_MIN         = 14;
-const INSECT_ORBIT_R_MAX         = 32;
-const INSECT_ORBIT_OMEGA_MIN     = 3.0;   // rad/s
-const INSECT_ORBIT_OMEGA_MAX     = 5.5;
-const INSECT_ORBIT_TILT_Y_MIN    = 0.35;  // ellipse squish — low = nearly edge-on
-const INSECT_ORBIT_TILT_Y_MAX    = 1.0;
-const INSECT_ORBIT_RADIAL_AMP_MIN  = 0.15;
-const INSECT_ORBIT_RADIAL_AMP_MAX  = 0.40;
-const INSECT_ORBIT_RADIAL_RATE_MIN = 0.8;
-const INSECT_ORBIT_RADIAL_RATE_MAX = 1.6;
+// Swarm-mode steering. Each follower carries its own (vx, vy) momentum
+// and is pulled toward a "fuzzy target" — a point that slowly wanders
+// around the leader's circle of attraction. ATTRACT_R is the max
+// distance of that target from the leader's centre; SWARM_ACCEL is the
+// constant-magnitude steering force; SWARM_DRAG damps velocity so the
+// fly settles into a buzzy orbit instead of accelerating unbounded;
+// SWARM_MAX_SPEED clamps the velocity for the inevitable spikes.
+// Together with the wandering target this produces organic, momentum-
+// driven motion that follows the leader but is never rigidly locked to
+// it (so when the leader darts, followers curve in to catch up rather
+// than teleporting in lockstep).
+const INSECT_ATTRACT_R       = 32;
+const INSECT_SWARM_ACCEL     = 650;     // px/s^2 — pull toward fuzzy target
+const INSECT_SWARM_DRAG      = 2.5;     // 1/s   — linear velocity drag
+const INSECT_SWARM_MAX_SPEED = 320;     // px/s
+const INSECT_WANDER_DRIFT_MIN = 0.6;    // rad/s — slow target drift around leader
+const INSECT_WANDER_DRIFT_MAX = 1.8;
 
 function _findEntityById(siblings, id) {
     for (const e of siblings) {
@@ -260,63 +262,69 @@ function _insectPickNewTarget(transform, state, _ctx) {
     state.mode = 'dart';
 }
 
-// Orbit behavior for a swarm follower. Each follower kinematically
-// traces its own randomly-oriented elliptical orbit around the leader
-// at a high angular rate, with a slow radial wobble so the path
-// "breathes". The orbit center is always re-read from the leader's
-// current transform, so the follower automatically inherits whatever
-// the leader is doing (dart, hover, drift) — overlaid on its own
-// energetic orbital motion.
-function _insectOrbitBehavior(transform, state, dt, _ctx, leaderEntity) {
+// Swarm steering for a follower. The follower keeps its own world-
+// space position and velocity (its dart-mode momentum carries straight
+// through into swarm mode) and is pulled toward a "fuzzy target": a
+// point that slowly wanders around the leader's circle of attraction.
+// Combined with linear drag and a speed cap, this gives an organic
+// momentum-driven buzz that follows the leader without being rigidly
+// locked to it. When the leader darts, followers curve in to catch up
+// instead of teleporting in lockstep.
+function _insectSwarmBehavior(transform, state, dt, _ctx, leaderEntity) {
     const leaderT = leaderEntity.getComponent('Transform');
     const lcx = leaderT.x + leaderT.width  / 2;
     const lcy = leaderT.y + leaderT.height / 2;
 
-    // First-time init: seed orbit params from this fly's current
-    // position relative to the leader so it slides into orbit instead
-    // of teleporting onto the ellipse.
-    if (state.orbitRadius == null) {
-        state.orbitTiltAngle   = Math.random() * Math.PI * 2;
-        state.orbitTiltY       = randomRange(INSECT_ORBIT_TILT_Y_MIN, INSECT_ORBIT_TILT_Y_MAX);
-        state.orbitOmega       = randomRange(INSECT_ORBIT_OMEGA_MIN, INSECT_ORBIT_OMEGA_MAX)
-                               * (Math.random() < 0.5 ? -1 : 1);
-        state.orbitRadialAmp   = randomRange(INSECT_ORBIT_RADIAL_AMP_MIN, INSECT_ORBIT_RADIAL_AMP_MAX);
-        state.orbitRadialRate  = randomRange(INSECT_ORBIT_RADIAL_RATE_MIN, INSECT_ORBIT_RADIAL_RATE_MAX);
-        state.orbitRadialPhase = Math.random() * Math.PI * 2;
-
-        // Decompose current offset into the orbit's local (tilted)
-        // frame so the starting angle and base radius match where the
-        // fly actually is right now.
-        const myCx = transform.x + transform.width  / 2;
-        const myCy = transform.y + transform.height / 2;
-        const dx = myCx - lcx;
-        const dy = myCy - lcy;
-        const cosT = Math.cos(-state.orbitTiltAngle);
-        const sinT = Math.sin(-state.orbitTiltAngle);
-        const localX = dx * cosT - dy * sinT;
-        const localY = (dx * sinT + dy * cosT) / Math.max(0.01, state.orbitTiltY);
-        state.orbitAngle  = Math.atan2(localY, localX);
-        const startR = Math.hypot(localX, localY);
-        state.orbitRadius = Math.max(INSECT_ORBIT_R_MIN,
-                            Math.min(INSECT_ORBIT_R_MAX, startR || INSECT_ORBIT_R_MIN));
+    // First-time init: seed a per-follower wandering target. Each
+    // follower drifts its target at a different rate / direction so
+    // the swarm doesn't all chase the same point. (vx/vy carry over
+    // from dart mode — momentum preserved.)
+    if (state.wanderAngle == null) {
+        state.wanderAngle   = Math.random() * Math.PI * 2;
+        state.wanderRadius  = randomRange(INSECT_ATTRACT_R * 0.4, INSECT_ATTRACT_R);
+        state.wanderDrift   = randomRange(INSECT_WANDER_DRIFT_MIN, INSECT_WANDER_DRIFT_MAX)
+                            * (Math.random() < 0.5 ? -1 : 1);
+        // Slow radial breathing — independent from angular drift.
+        state.wanderRadialOmega = randomRange(0.5, 1.4);
+        state.wanderRadialPhase = Math.random() * Math.PI * 2;
+        if (state.vx == null) state.vx = 0;
+        if (state.vy == null) state.vy = 0;
     }
 
-    state.orbitAngle       += state.orbitOmega       * dt;
-    state.orbitRadialPhase += state.orbitRadialRate  * dt;
+    // Drift the target around the leader's circle and breathe its radius.
+    state.wanderAngle       += state.wanderDrift       * dt;
+    state.wanderRadialPhase += state.wanderRadialOmega * dt;
+    const r = INSECT_ATTRACT_R * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(state.wanderRadialPhase)));
+    const targetX = lcx + Math.cos(state.wanderAngle) * r;
+    const targetY = lcy + Math.sin(state.wanderAngle) * r;
 
-    const r = state.orbitRadius
-            * (1 + state.orbitRadialAmp * Math.sin(state.orbitRadialPhase));
+    // Steering force: constant-magnitude pull toward the fuzzy target.
+    // Direction is normalized so the force stays meaningful even when
+    // close to the target — combined with drag this means the fly
+    // never quite settles, giving the buzzy quality.
+    const myCx = transform.x + transform.width  / 2;
+    const myCy = transform.y + transform.height / 2;
+    const dx = targetX - myCx;
+    const dy = targetY - myCy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 0.5) {
+        state.vx += (dx / dist) * INSECT_SWARM_ACCEL * dt;
+        state.vy += (dy / dist) * INSECT_SWARM_ACCEL * dt;
+    }
 
-    // Orbit ellipse in local frame, then rotate by tiltAngle into screen frame.
-    const localX = Math.cos(state.orbitAngle) * r;
-    const localY = Math.sin(state.orbitAngle) * r * state.orbitTiltY;
-    const cosT = Math.cos(state.orbitTiltAngle);
-    const sinT = Math.sin(state.orbitTiltAngle);
-    const screenDx = localX * cosT - localY * sinT;
-    const screenDy = localX * sinT + localY * cosT;
+    // Linear drag — terminal speed = SWARM_ACCEL / SWARM_DRAG.
+    const dragFactor = Math.max(0, 1 - INSECT_SWARM_DRAG * dt);
+    state.vx *= dragFactor;
+    state.vy *= dragFactor;
 
-    transform.x = lcx + screenDx - transform.width  / 2;
-    transform.y = lcy + screenDy - transform.height / 2;
+    const v = Math.hypot(state.vx, state.vy);
+    if (v > INSECT_SWARM_MAX_SPEED) {
+        state.vx = (state.vx / v) * INSECT_SWARM_MAX_SPEED;
+        state.vy = (state.vy / v) * INSECT_SWARM_MAX_SPEED;
+    }
+
+    transform.x += state.vx * dt;
+    transform.y += state.vy * dt;
 }
 
 // Dispatcher. State machine has two modes:
@@ -325,9 +333,10 @@ function _insectOrbitBehavior(transform, state, dt, _ctx, leaderEntity) {
 //             lower entity id has come within SWARM_RADIUS. Flies with
 //             at least one follower are locked here (the user's "leader
 //             cannot be displaced" rule).
-//   'swarm' — orbit the locked leader. If the leader despawns (its
-//             entity vanishes from the sibling list), revert to dart
-//             and a new swarm may emerge organically from proximity.
+//   'swarm' — momentum-driven steering toward a fuzzy point near the
+//             locked leader. If the leader despawns (its entity
+//             vanishes from the sibling list), revert to dart; a new
+//             swarm may then emerge organically from proximity.
 function _insectBehavior(transform, state, dt, ctx) {
     if (!state.selfEntity) {
         for (const e of ctx.siblings) {
@@ -346,15 +355,16 @@ function _insectBehavior(transform, state, dt, ctx) {
     if (state.mode === 'swarm') {
         const leader = _findEntityById(ctx.siblings, state.leaderId);
         if (leader && leader.getComponent('Transform')) {
-            _insectOrbitBehavior(transform, state, dt, ctx, leader);
+            _insectSwarmBehavior(transform, state, dt, ctx, leader);
             return;
         }
         // Leader despawned — drop into a brief hover at the current
-        // spot so we don't bolt away abruptly. From here the regular
-        // dart-mode loop takes over and we may emergently re-form a
-        // new swarm with whichever flies remain nearby.
+        // spot. From here the regular dart-mode loop takes over and we
+        // may emergently re-form a new swarm with whichever flies
+        // remain nearby. Clear swarm state so a fresh wander seeds on
+        // the next swarm join.
         state.leaderId    = null;
-        state.orbitRadius = null;
+        state.wanderAngle = null;
         state.mode        = 'hover';
         state.hoverTimer  = randomRange(INSECT_MIN_HOVER, INSECT_MAX_HOVER);
         state.vx = 0;
@@ -369,8 +379,8 @@ function _insectBehavior(transform, state, dt, ctx) {
         if (newLeader) {
             state.mode = 'swarm';
             state.leaderId = newLeader.id;
-            state.orbitRadius = null;   // re-seeded on first orbit tick
-            _insectOrbitBehavior(transform, state, dt, ctx, newLeader);
+            state.wanderAngle = null;   // re-seeded on first swarm tick
+            _insectSwarmBehavior(transform, state, dt, ctx, newLeader);
             return;
         }
     }
@@ -381,6 +391,34 @@ function _renderInsect(ctx, transform, state) {
     const animator = state.animator;
     if (!animator) return;
     animator.render(ctx, transform.x, transform.y, transform.width, transform.height);
+}
+
+// Spawn a fly just off one of the four screen edges and pick an
+// initial dart target that lies within [MIN_DART_DIST, MAX_DART_DIST]
+// of the spawn position, in a direction pointing into the screen. The
+// fly's first dart is thus indistinguishable in scale from any later
+// random-walk hop — no long cross-screen flights aiming at the sun.
+function _spawnInsectAtEdge(canvasW, canvasH, width, height) {
+    const edge = Math.floor(Math.random() * 4); // 0=top,1=right,2=bot,3=left
+    let x, y, intoAxis;
+    switch (edge) {
+        case 0:  x = randomRange(0, canvasW - width); y = -height;  intoAxis =  Math.PI / 2; break;
+        case 1:  x = canvasW; y = randomRange(0, canvasH * 0.6);    intoAxis =  Math.PI;     break;
+        case 2:  x = randomRange(0, canvasW - width); y = canvasH;  intoAxis = -Math.PI / 2; break;
+        default: x = -width;  y = randomRange(0, canvasH * 0.6);    intoAxis =  0;           break;
+    }
+    // Initial dart target: a point at a regular-hop distance from the
+    // spawn centre, in a direction within ±60° of the inward normal.
+    const arcHalf = Math.PI / 3;
+    const angle = intoAxis + randomRange(-arcHalf, arcHalf);
+    const hop   = randomRange(INSECT_MIN_DART_DIST, INSECT_MAX_DART_DIST);
+    const cx = x + width  / 2;
+    const cy = y + height / 2;
+    return {
+        transform: { x, y, width, height },
+        targetX:   cx + Math.cos(angle) * hop,
+        targetY:   cy + Math.sin(angle) * hop
+    };
 }
 
 const FLYING_INSECT = {
@@ -396,29 +434,28 @@ const FLYING_INSECT = {
         const height = width * 0.95;
 
         // Purely independent spawn — no coordination with existing
-        // flies. Pick any screen edge, aim at a random interior point,
-        // and let the standard dart-hover loop take over. Swarms emerge
-        // organically when independent flies happen to drift within
-        // SWARM_RADIUS of each other.
-        const transform = spawnAtAnyEdge(canvasW, canvasH, width, height);
-        const targetX   = randomRange(canvasW * 0.15, canvasW * 0.85);
-        const targetY   = randomRange(canvasH * 0.15, canvasH * 0.60);
+        // flies. Swarms emerge organically when independent flies
+        // happen to drift within SWARM_RADIUS of each other.
+        const placement = _spawnInsectAtEdge(canvasW, canvasH, width, height);
 
         const animator = new Animator(INSECT_BUZZ_ANIMATION);
         const state = {
             mode: 'dart',
-            targetX,
-            targetY,
+            targetX: placement.targetX,
+            targetY: placement.targetY,
             dartSpeed: randomRange(INSECT_MIN_DART_SPEED, INSECT_MAX_DART_SPEED),
             hoverTimer: 0,
             bobTime: randomRange(0, Math.PI * 2),
+            // Momentum carried into swarm mode; seeded by dart behavior.
+            vx: 0,
+            vy: 0,
             // Swarm state — null while solo, set when joining a swarm.
             leaderId: null,
-            orbitRadius: null,
+            wanderAngle: null,
             animator,
             selfEntity: null    // resolved on first behavior tick
         };
-        return { transform, state, animator };
+        return { transform: placement.transform, state, animator };
     },
     behavior: _insectBehavior,
     render: _renderInsect
