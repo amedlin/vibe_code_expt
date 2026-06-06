@@ -3,7 +3,7 @@
 # Trickier than Alpha: more vertical traversal, asymmetric tier heights,
 # and the top reward can only be reached after climbing both halves.
 # Platform: x, y, width, height
-# Tangram: piece_id, x, y
+# Pill: pill, x, y      (collectible AABB top-left; size set in pill.js)
 # Decoration: grass | tree | shrub, x, optional_y_hint
 # Ground platform
 0, 570, 800, 30
@@ -20,14 +20,16 @@
 280, 185, 240, 20
 # Top reward platform
 365, 90, 70, 20
-# Tangram pieces — spread across many platforms to force routing
-parallelogram, 365, 535
-large_tri_1, 70, 395
-large_tri_2, 620, 385
-small_tri_1, 270, 345
-small_tri_2, 490, 335
-medium_tri, 632, 224
-square, 378, 50
+# Pills — one per platform top, encouraging full traversal
+pill, 393, 556
+pill, 103, 461
+pill, 653, 451
+pill, 293, 371
+pill, 513, 361
+pill, 173, 276
+pill, 663, 266
+pill, 393, 171
+pill, 393, 76
 # Set dressing — ground
 tree, 30, 570
 shrub, 200, 570

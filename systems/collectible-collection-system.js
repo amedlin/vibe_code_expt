@@ -1,4 +1,9 @@
-class TangramCollectionSystem extends System {
+// Pickup loop for any entity carrying both Collectible + Transform.
+// On AABB overlap with the player's bounding box the collectible is
+// added to the player's Inventory and the entity is destroyed.
+// Knows nothing about specific collectible kinds — pills today, other
+// flavours later.
+class CollectibleCollectionSystem extends System {
     constructor(getPlayerEntity, getECS) {
         super(['Collectible', 'Transform']);
         this.getPlayerEntity = getPlayerEntity;
@@ -35,19 +40,9 @@ class TangramCollectionSystem extends System {
             };
 
             if (rectanglesOverlap(playerBounds, bounds)) {
-                const itemId = this.resolveInventoryId(entity, collectible);
-                if (itemId) {
-                    inventory.add(itemId);
-                }
+                inventory.add(collectible.collectibleId);
                 ecs.destroyEntity(entity);
             }
         }
-    }
-
-    resolveInventoryId(entity, collectible) {
-        if (entity.hasComponent('TangramPiece')) {
-            return entity.getComponent('TangramPiece').pieceId;
-        }
-        return collectible.collectibleId;
     }
 }

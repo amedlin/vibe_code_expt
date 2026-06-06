@@ -7,7 +7,7 @@
 //
 // Render order: this system is registered first in the dynamic render
 // list so sky paints above the cached static background but behind the
-// player, tangrams, and front decorations.
+// player, collectibles, and front decorations.
 class SkyRenderSystem extends System {
     constructor() {
         super(['Transform', 'SkyElement']);

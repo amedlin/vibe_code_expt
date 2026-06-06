@@ -59,9 +59,9 @@ class LevelManager {
             console.log('No platforms in level data');
         }
 
-        if (levelData.tangramPieces && levelData.tangramPieces.length > 0) {
-            for (let pieceDef of levelData.tangramPieces) {
-                this.createTangramPiece(pieceDef);
+        if (levelData.collectibles && levelData.collectibles.length > 0) {
+            for (let def of levelData.collectibles) {
+                this.createCollectible(def);
             }
         }
 
@@ -162,22 +162,23 @@ class LevelManager {
         ));
     }
 
-    createTangramPiece(pieceDef) {
-        const def = getTangramPiece(pieceDef.pieceId);
-        if (!def) {
-            console.warn('Unknown tangram piece:', pieceDef.pieceId);
+    createCollectible(def) {
+        if (def.kind === PILL_ID) {
+            this.createPill(def);
             return;
         }
+        console.warn('Unknown collectible kind:', def.kind);
+    }
 
+    createPill(def) {
         const entity = this.engine.ecs.createEntity();
         entity.addComponent('Transform', new TransformComponent(
-            pieceDef.x,
-            pieceDef.y,
-            def.width,
-            def.height
+            def.x,
+            def.y,
+            PILL_WIDTH,
+            PILL_HEIGHT
         ));
-        entity.addComponent('TangramPiece', new TangramPieceComponent(pieceDef.pieceId));
-        entity.addComponent('Collectible', new CollectibleComponent(pieceDef.pieceId));
+        entity.addComponent('Collectible', new CollectibleComponent(PILL_ID));
     }
 
     createPlayer(x = DEFAULT_PLAYER_SPAWN_X, y = DEFAULT_PLAYER_SPAWN_Y) {

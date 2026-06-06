@@ -1,19 +1,18 @@
+// Generic collectible counter. We previously tracked each tangram piece
+// by id (since the same id couldn't be collected twice), but now that
+// pills are interchangeable we just keep a running tally — this also
+// removes the implicit cap of "one of each known id" and lets a level
+// place arbitrarily many collectibles.
 class InventoryComponent {
     constructor() {
-        this.collected = [];
+        this.count = 0;
     }
 
-    has(pieceId) {
-        return this.collected.includes(pieceId);
+    add(_itemId) {
+        this.count += 1;
     }
 
-    add(pieceId) {
-        if (!this.has(pieceId)) {
-            this.collected.push(pieceId);
-        }
-    }
-
-    get isComplete() {
-        return this.collected.length >= TANGRAM_PIECE_IDS.length;
+    reset() {
+        this.count = 0;
     }
 }

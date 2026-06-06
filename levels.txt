@@ -1,7 +1,7 @@
 # Level Alpha
 # Theme: forest
 # Platform: x, y, width, height
-# Tangram: piece_id, x, y
+# Pill: pill, x, y      (collectible AABB top-left; size set in pill.js)
 # Decoration: grass | tree | shrub, x, optional_y_hint
 # Ground platform
 0, 550, 800, 50
@@ -13,14 +13,14 @@
 300, 250, 200, 20
 150, 150, 100, 20
 550, 150, 100, 20
-# Tangram pieces (seven standard pieces, distributed on reachable platforms)
-large_tri_1, 270, 370
-large_tri_2, 530, 310
-medium_tri, 120, 294
-small_tri_1, 350, 210
-small_tri_2, 570, 110
-square, 175, 110
-parallelogram, 400, 515
+# Pills — one per platform tier, sitting on the platform top
+pill, 393, 536
+pill, 318, 436
+pill, 168, 336
+pill, 568, 336
+pill, 393, 236
+pill, 193, 136
+pill, 593, 136
 # Set dressing (snaps to platform below x; y hint picks among stacked surfaces)
 grass, 40
 grass, 200, 450

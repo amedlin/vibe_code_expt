@@ -3,7 +3,7 @@
 # Bilateral symmetry around the vertical center line x=400. Five tiers,
 # 100px apart vertically, with outer-pair and center platforms each tier.
 # Platform: x, y, width, height
-# Tangram: piece_id, x, y
+# Pill: pill, x, y      (collectible AABB top-left; size set in pill.js)
 # Decoration: grass | tree | shrub, x, optional_y_hint
 
 # Ground (full width)
@@ -24,14 +24,15 @@
 # Tier 4 — small peak reward
 360, 160, 80, 20
 
-# Tangram pieces — symmetric across x=400
-parallelogram, 360, 525
-large_tri_1, 80, 420
-large_tri_2, 650, 420
-small_tri_1, 155, 335
-small_tri_2, 580, 335
-medium_tri, 370, 215
-square, 375, 130
+# Pills — symmetric across x=400, one per platform tier
+pill, 393, 546
+pill, 113, 446
+pill, 673, 446
+pill, 393, 446
+pill, 183, 346
+pill, 603, 346
+pill, 393, 246
+pill, 393, 146
 
 # Decorations — ground line
 tree, 40

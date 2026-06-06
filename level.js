@@ -1,6 +1,6 @@
 // Level class for managing level data and platform definitions
 class Level {
-    constructor(name, themeId, seed, platforms = [], tangramPieces = [], decorations = []) {
+    constructor(name, themeId, seed, platforms = [], collectibles = [], decorations = []) {
         this.name = name;
         this.themeId = themeId ?? DEFAULT_THEME_ID;
         // Optional explicit background seed. When null, LevelManager
@@ -8,14 +8,14 @@ class Level {
         // without needing an author-supplied value.
         this.seed = seed ?? null;
         this.platforms = platforms;
-        this.tangramPieces = tangramPieces;
+        this.collectibles = collectibles;
         this.decorations = decorations;
     }
 
     static parse(text) {
         const lines = text.split('\n');
         const platforms = [];
-        const tangramPieces = [];
+        const collectibles = [];
         const decorations = [];
         let levelName = 'Unnamed Level';
         let themeId = DEFAULT_THEME_ID;
@@ -62,11 +62,13 @@ class Level {
                 continue;
             }
 
-            if (parts.length === 3 && isTangramPieceId(parts[0])) {
+            // Collectibles: `pill, x, y`. Only one collectible kind today;
+            // additional kinds would slot in as parallel branches here.
+            if (parts.length === 3 && parts[0] === PILL_ID) {
                 const x = parseFloat(parts[1]);
                 const y = parseFloat(parts[2]);
                 if (!isNaN(x) && !isNaN(y)) {
-                    tangramPieces.push({ pieceId: parts[0], x, y });
+                    collectibles.push({ kind: PILL_ID, x, y });
                 }
                 continue;
             }
@@ -84,6 +86,6 @@ class Level {
             }
         }
 
-        return new Level(levelName, themeId, seed, platforms, tangramPieces, decorations);
+        return new Level(levelName, themeId, seed, platforms, collectibles, decorations);
     }
 }

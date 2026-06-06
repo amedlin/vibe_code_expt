@@ -4,20 +4,19 @@ const DEFAULT_PLAYER_SPAWN_X = 100;
 const DEFAULT_PLAYER_SPAWN_Y = 300;
 const SPAWN_CLEARANCE = 4;
 
-function getTangramObstacleBounds(levelData) {
+function getCollectibleObstacleBounds(levelData) {
     const obstacles = [];
-    if (!levelData.tangramPieces) {
+    if (!levelData.collectibles) {
         return obstacles;
     }
 
-    for (const piece of levelData.tangramPieces) {
-        const def = getTangramPiece(piece.pieceId);
-        if (!def) continue;
+    for (const def of levelData.collectibles) {
+        if (def.kind !== PILL_ID) continue;
         obstacles.push({
-            x: piece.x,
-            y: piece.y,
-            width: def.width,
-            height: def.height
+            x: def.x,
+            y: def.y,
+            width: PILL_WIDTH,
+            height: PILL_HEIGHT
         });
     }
     return obstacles;
@@ -56,7 +55,7 @@ function isPlayerSpawnClear(x, y, obstacles, canvasWidth) {
 }
 
 function findSafePlayerSpawn(levelData, canvasWidth) {
-    const obstacles = getTangramObstacleBounds(levelData);
+    const obstacles = getCollectibleObstacleBounds(levelData);
     const candidates = [];
 
     candidates.push({ x: DEFAULT_PLAYER_SPAWN_X, y: DEFAULT_PLAYER_SPAWN_Y });
@@ -77,6 +76,6 @@ function findSafePlayerSpawn(levelData, canvasWidth) {
         }
     }
 
-    console.warn('No clear tangram-free spawn found; using default');
+    console.warn('No clear collectible-free spawn found; using default');
     return { x: DEFAULT_PLAYER_SPAWN_X, y: DEFAULT_PLAYER_SPAWN_Y };
 }

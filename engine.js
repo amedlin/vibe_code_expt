@@ -121,7 +121,7 @@ class GameEngine {
         this.ecs.addUpdateSystem(new PhysicsSystem([0, this.gravity]));
         this.ecs.addUpdateSystem(new AnimationSystem());
         this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
-        this.ecs.addUpdateSystem(new TangramCollectionSystem(
+        this.ecs.addUpdateSystem(new CollectibleCollectionSystem(
             () => this.ecs.playerEntity,
             () => this.ecs
         ));
@@ -152,7 +152,7 @@ class GameEngine {
 
         // Front dynamic layer — re-rendered each frame while playing.
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
-        this.ecs.addRenderSystem(new TangramRenderSystem(this.camera));
+        this.ecs.addRenderSystem(new PillRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));
 
         this.inventoryRenderSystem = new InventoryRenderSystem(
@@ -367,7 +367,7 @@ class GameEngine {
         this.ensureStaticLayer();
 
         // Paint order: procedural background -> animated sky (clouds,
-        // birds, ...) -> platforms + back decorations -> player + tangrams
+        // birds, ...) -> platforms + back decorations -> player + pills
         // + front decorations. The cached props canvas has a transparent
         // base, so the sky shows through wherever there is no platform or
         // back prop.
@@ -423,7 +423,7 @@ class GameEngine {
         }
         const player = this.ecs.playerEntity;
         const inventory = player ? player.getComponent('Inventory') : null;
-        const count = inventory ? inventory.collected.length : -1;
+        const count = inventory ? inventory.count : -1;
         if (!this._inventoryDirty && count === this._lastInventoryCount) {
             return;
         }
