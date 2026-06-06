@@ -137,7 +137,7 @@ const INSECT_MAX_HOVER      = 3.0;  // s — maximum linger after a dart
 // becomes the leader (continues darting unchanged); the other switches
 // to swarm-steer behavior. Leaders are locked at formation — once a
 // fly has followers it can never become someone else's follower.
-const INSECT_SWARM_RADIUS    = 55;
+const INSECT_SWARM_RADIUS    = 85;
 
 // Swarm-mode steering. Each follower carries its own (vx, vy) momentum
 // and is pulled toward a "fuzzy target" — a point that slowly wanders
