@@ -43,6 +43,9 @@ class LevelManager {
         if (this.engine.skySpawnSystem) {
             this.engine.skySpawnSystem.resetPreWarm();
         }
+        if (this.engine.particlePool) {
+            this.engine.particlePool.clear();
+        }
         this.engine.ecs.clearEntities();
         console.log('ECS entities cleared');
 
@@ -234,6 +237,9 @@ class LevelManager {
 
             entity.addComponent('VelocityTracker', new VelocityTrackerComponent());
             console.log('VelocityTracker component added');
+
+            entity.addComponent('ParticleEmitter', new ParticleEmitterComponent());
+            console.log('ParticleEmitter component added');
 
             entity.addComponent('Inventory', new InventoryComponent());
             console.log('Inventory component added');

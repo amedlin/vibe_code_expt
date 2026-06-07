@@ -34,6 +34,30 @@
             kinds: DESERT_SKY_KINDS
         },
 
+        particles: {
+            dust: {
+                color:        '#c49a6a',
+                size:         6,
+                sizeEnd:      2,
+                alpha:        0.52,
+                alphaEnd:     0,
+                alphaJitter:  0.16,
+                life:         0.48,
+                emitInterval: 0.035,
+                speed:        42
+            },
+            smoke: {
+                color:       '#c4b49a',
+                size:        14,
+                sizeEnd:     24,
+                alpha:       0.42,
+                alphaEnd:    0,
+                life:        0.7,
+                burstCount:  6,
+                riseSpeed:   58
+            }
+        },
+
         generateBackground(ctx, width, height, rng) {
             generateDesertBackground(ctx, width, height, rng, this.palette);
         },

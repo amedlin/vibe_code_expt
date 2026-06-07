@@ -34,6 +34,30 @@
             kinds: FOREST_SKY_KINDS
         },
 
+        particles: {
+            dust: {
+                color:        '#6a5a45',
+                size:         5,
+                sizeEnd:      1.5,
+                alpha:        0.48,
+                alphaEnd:     0,
+                alphaJitter:  0.14,
+                life:         0.42,
+                emitInterval: 0.038,
+                speed:        38
+            },
+            smoke: {
+                color:       '#9aab96',
+                size:        12,
+                sizeEnd:     20,
+                alpha:       0.38,
+                alphaEnd:    0,
+                life:        0.65,
+                burstCount:  4,
+                riseSpeed:   50
+            }
+        },
+
         // Delegated to the dedicated forest background module so the
         // theme file stays focused on palette + role->sprite mapping.
         generateBackground(ctx, width, height, rng) {

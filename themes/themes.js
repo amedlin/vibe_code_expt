@@ -15,6 +15,7 @@
 //     generateBackground(ctx, width, height, rng?): void
 //     drawPlatform(ctx, x, y, width, height): void
 //     getPropSprite(role): { canvas, width, height } | null
+//     particles?: { dust: {...}, smoke: {...} }  — optional movement VFX
 //   }
 //
 // `role` is one of THEME_PROP_ROLES — semantic size/silhouette classes that

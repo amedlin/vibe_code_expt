@@ -119,6 +119,17 @@ class GameEngine {
         this.ecs.addUpdateSystem(new MovementSystem());
         this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
         this.ecs.addUpdateSystem(new PhysicsSystem([0, this.gravity]));
+
+        const themeProvider = () => this.currentTheme;
+
+        this.particlePool = new ParticlePool(PARTICLE_POOL_DEFAULT_CAP);
+        this.ecs.addUpdateSystem(new ParticleEmitterSystem(
+            () => this.ecs.playerEntity,
+            themeProvider,
+            this.particlePool
+        ));
+        this.ecs.addUpdateSystem(new ParticleUpdateSystem(this.particlePool));
+
         this.ecs.addUpdateSystem(new AnimationSystem());
         this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
         this.ecs.addUpdateSystem(new CollectibleCollectionSystem(
@@ -126,8 +137,6 @@ class GameEngine {
             () => this.ecs
         ));
         this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
-
-        const themeProvider = () => this.currentTheme;
 
         // Sky element spawn + behavior. Sky entities are ambient (no
         // physics / collisions / AI) and their churn does not invalidate
@@ -152,6 +161,8 @@ class GameEngine {
         this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back', themeProvider));
 
         // Front dynamic layer — re-rendered each frame while playing.
+        // Particles render behind the player so dust reads at the feet.
+        this.ecs.addRenderSystem(new ParticleRenderSystem(this.camera, this.particlePool));
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
         this.ecs.addRenderSystem(new PillRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));

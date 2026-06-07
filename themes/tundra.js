@@ -32,6 +32,30 @@
             kinds: TUNDRA_SKY_KINDS
         },
 
+        particles: {
+            dust: {
+                color:        '#b8c5cc',
+                size:         5,
+                sizeEnd:      1.5,
+                alpha:        0.45,
+                alphaEnd:     0,
+                alphaJitter:  0.12,
+                life:         0.4,
+                emitInterval: 0.04,
+                speed:        36
+            },
+            smoke: {
+                color:       '#e8eef2',
+                size:        13,
+                sizeEnd:     21,
+                alpha:       0.35,
+                alphaEnd:    0,
+                life:        0.75,
+                burstCount:  5,
+                riseSpeed:   45
+            }
+        },
+
         generateBackground(ctx, width, height, rng) {
             generateTundraBackground(ctx, width, height, rng, this.palette);
         },
