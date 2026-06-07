@@ -161,9 +161,10 @@ class GameEngine {
         this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back', themeProvider));
 
         // Front dynamic layer — re-rendered each frame while playing.
-        // Particles render behind the player so dust reads at the feet.
-        this.ecs.addRenderSystem(new ParticleRenderSystem(this.camera, this.particlePool));
+        // Player first, then particles in front so translucent dust/smoke
+        // blends over the character rather than being hidden behind it.
         this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
+        this.ecs.addRenderSystem(new ParticleRenderSystem(this.camera, this.particlePool));
         this.ecs.addRenderSystem(new PillRenderSystem(this.camera));
         this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));
 

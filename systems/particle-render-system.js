@@ -1,4 +1,4 @@
-// Renders the particle pool in world space, behind the player sprite.
+// Renders the particle pool in world space, in front of the player sprite.
 class ParticleRenderSystem extends System {
     constructor(camera, pool) {
         super([]);

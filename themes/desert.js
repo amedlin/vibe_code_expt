@@ -47,7 +47,7 @@
                 speed:        42
             },
             smoke: {
-                color:       '#c4b49a',
+                color:       '#d4a76a',
                 size:        14,
                 sizeEnd:     24,
                 alpha:       0.42,
