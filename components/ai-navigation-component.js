@@ -20,6 +20,10 @@ class AINavigationComponent {
         // Last grounded platform id. Survives airborne frames so the agent
         // can still reason about where it came from while in flight.
         this.currentPlatformId = null;
+
+        // Platform id we already replanned from after going off-route. Cleared
+        // when back on the cached route so we replan once per bad landing.
+        this.offPathReplanPlatformId = null;
     }
 
     reset() {
@@ -27,5 +31,6 @@ class AINavigationComponent {
         this.pathStep = 0;
         this.transit = null;
         this.currentPlatformId = null;
+        this.offPathReplanPlatformId = null;
     }
 }

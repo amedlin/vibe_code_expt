@@ -12,11 +12,18 @@ class AIPlanComponent {
         // Entity ID of the collectible the agent is actively routing toward.
         // Used to detect when the active target has changed.
         this.targetEntityId = null;
+
+        // When buildCollectiblePlan returns [] from a platform, skip retrying
+        // until the agent moves or a collectible is collected.
+        this.planBlockedPlatformId = null;
+        this.planBlockedCollectibleCount = 0;
     }
 
     reset() {
         this.collectiblePlan = [];
         this.planIndex = 0;
         this.targetEntityId = null;
+        this.planBlockedPlatformId = null;
+        this.planBlockedCollectibleCount = 0;
     }
 }

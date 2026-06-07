@@ -215,9 +215,11 @@ class NavigationGraph {
             const path = queue.shift();
             const currentId = path[path.length - 1];
 
-            // Shuffle edges so that when multiple equally-short paths exist,
-            // BFS picks a random one instead of always the first found.
-            const edges = shuffleArray(this.getEdgesFrom(currentId).slice());
+            // Stable edge order keeps routes identical across frames. Random
+            // variety lives in buildCollectiblePlan's softmax sampling only;
+            // re-rolling paths every frame caused movement jitter.
+            const edges = this.getEdgesFrom(currentId).slice()
+                .sort((a, b) => a.toId - b.toId);
 
             for (const edge of edges) {
                 if (visited.has(edge.toId)) continue;

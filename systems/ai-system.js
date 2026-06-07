@@ -48,13 +48,29 @@ class AISystem extends System {
         const needsPlan = plan.collectiblePlan.length === 0 ||
             plan.planIndex >= plan.collectiblePlan.length;
 
-        if (needsPlan && collectibles.length > 0 && currentPlatform) {
-            plan.collectiblePlan = navGraph.buildCollectiblePlan(
-                collectibles,
-                currentPlatform,
-                { temperature: agent.planTemperature }
-            );
-            plan.planIndex = 0;
+        if (!needsPlan || collectibles.length === 0 || !currentPlatform) {
+            return;
+        }
+
+        const blockedHere = plan.planBlockedPlatformId === currentPlatform.id &&
+            plan.planBlockedCollectibleCount === collectibles.length;
+        if (blockedHere) {
+            return;
+        }
+
+        plan.collectiblePlan = navGraph.buildCollectiblePlan(
+            collectibles,
+            currentPlatform,
+            { temperature: agent.planTemperature }
+        );
+        plan.planIndex = 0;
+
+        if (plan.collectiblePlan.length === 0) {
+            plan.planBlockedPlatformId = currentPlatform.id;
+            plan.planBlockedCollectibleCount = collectibles.length;
+        } else {
+            plan.planBlockedPlatformId = null;
+            plan.planBlockedCollectibleCount = 0;
         }
     }
 
@@ -126,12 +142,13 @@ class AISystem extends System {
             nav.route.platformIds[nav.route.platformIds.length - 1] !== goalPlatform.id;
         const offPath = groundedPlatform && nav.route &&
             nav.route.platformIds.indexOf(groundedPlatform.id) < 0;
+        const offPathNeedsReplan = offPath &&
+            nav.offPathReplanPlatformId !== groundedPlatform.id;
 
-        // Only re-roll the route when needed: new target, new goal platform,
-        // or we ended up on an unexpected platform. Otherwise reuse the cached
-        // route so randomized pathfinding doesn't pick a fresh route every
-        // frame and jitter the AI.
-        if (targetChanged || goalChanged || offPath) {
+        // Recompute the route only when the target/goal changes or when we
+        // first land on an unexpected platform — not every frame while stuck
+        // off-route, which previously re-rolled paths and caused edge jitter.
+        if (targetChanged || goalChanged || offPathNeedsReplan) {
             const route = navGraph.findPath(currentPlatform, goalPlatform);
             if (!route) {
                 this.skipUnreachableTarget(plan, nav);
@@ -141,6 +158,11 @@ class AISystem extends System {
             plan.targetEntityId = target.entityId;
             nav.pathStep = 0;
             nav.transit = null;
+            nav.offPathReplanPlatformId = offPath ? groundedPlatform.id : null;
+        }
+
+        if (!offPath) {
+            nav.offPathReplanPlatformId = null;
         }
 
         if (groundedPlatform) {

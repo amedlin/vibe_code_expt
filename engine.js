@@ -107,6 +107,10 @@ class GameEngine {
     }
 
     registerSystems() {
+        this.ecs.addUpdateSystem(new CollectibleCollectionSystem(
+            () => this.ecs.playerEntity,
+            () => this.ecs
+        ));
         this.ecs.addUpdateSystem(new AISystem(
             () => this.inputSourceManager.getSourceId(),
             () => this.navigationGraph,
@@ -132,10 +136,6 @@ class GameEngine {
 
         this.ecs.addUpdateSystem(new AnimationSystem());
         this.ecs.addUpdateSystem(new AnimatorUpdateSystem());
-        this.ecs.addUpdateSystem(new CollectibleCollectionSystem(
-            () => this.ecs.playerEntity,
-            () => this.ecs
-        ));
         this.ecs.addUpdateSystem(new GameOverSystem(this.canvasHeight, () => this.enterGameOver()));
 
         // Sky element spawn + behavior. Sky entities are ambient (no
