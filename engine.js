@@ -149,24 +149,34 @@ class GameEngine {
             this.canvasWidth, this.canvasHeight, this
         ));
 
-        // Back dynamic layer — painted between the procedural background
-        // and the props (platforms + back decorations) so sky elements
-        // read as distant background instead of foreground.
-        this.ecs.addBackDynamicRenderSystem(new SkyRenderSystem());
-
-        // Static props layer — platforms + back decorations. Cached into
-        // an offscreen canvas with a transparent base so the back-dynamic
-        // sky shows through wherever a prop doesn't cover it.
-        this.ecs.addStaticRenderSystem(new PlatformRenderSystem(this.camera, themeProvider));
-        this.ecs.addStaticRenderSystem(new DecorationRenderSystem(this.camera, 'back', themeProvider));
-
-        // Front dynamic layer — re-rendered each frame while playing.
-        // Player first, then particles in front so translucent dust/smoke
-        // blends over the character rather than being hidden behind it.
-        this.ecs.addRenderSystem(new AnimatedRenderSystem(this.camera));
-        this.ecs.addRenderSystem(new ParticleRenderSystem(this.camera, this.particlePool));
-        this.ecs.addRenderSystem(new PillRenderSystem(this.camera));
-        this.ecs.addRenderSystem(new DecorationRenderSystem(this.camera, 'front', themeProvider));
+        // Render systems — layer ids and sort order live in render-layers.js.
+        this.ecs.addRenderSystem(new SkyRenderSystem(), RENDER_LAYER.SKY.id);
+        this.ecs.addRenderSystem(
+            new PlatformRenderSystem(this.camera, themeProvider),
+            RENDER_LAYER.PROPS.id,
+            { bakeToProps: true }
+        );
+        this.ecs.addRenderSystem(
+            new DecorationRenderSystem(this.camera, 'back', themeProvider),
+            RENDER_LAYER.PROPS.id,
+            { bakeToProps: true }
+        );
+        this.ecs.addRenderSystem(
+            new AnimatedRenderSystem(this.camera),
+            RENDER_LAYER.PLAYER.id
+        );
+        this.ecs.addRenderSystem(
+            new ParticleRenderSystem(this.camera, this.particlePool),
+            RENDER_LAYER.PARTICLES.id
+        );
+        this.ecs.addRenderSystem(
+            new PillRenderSystem(this.camera),
+            RENDER_LAYER.COLLECTIBLES.id
+        );
+        this.ecs.addRenderSystem(
+            new DecorationRenderSystem(this.camera, 'front', themeProvider),
+            RENDER_LAYER.DECORATIONS_FRONT.id
+        );
 
         this.inventoryRenderSystem = new InventoryRenderSystem(
             () => this.ecs.playerEntity,
@@ -379,15 +389,19 @@ class GameEngine {
     renderWorld(showDebugHud) {
         this.ensureStaticLayer();
 
-        // Paint order: procedural background -> animated sky (clouds,
-        // birds, ...) -> platforms + back decorations -> player + pills
-        // + front decorations. The cached props canvas has a transparent
-        // base, so the sky shows through wherever there is no platform or
-        // back prop.
-        this.ctx.drawImage(this.backgroundCanvas, 0, 0);
-        this.ecs.renderBackDynamic(this.ctx);
-        this.ctx.drawImage(this.propsCanvas, 0, 0);
-        this.ecs.render(this.ctx);
+        for (const layer of RENDER_LAYER_PIPELINE) {
+            switch (layer.composite) {
+                case 'blit-background':
+                    this.ctx.drawImage(this.backgroundCanvas, 0, 0);
+                    break;
+                case 'blit-props':
+                    this.ctx.drawImage(this.propsCanvas, 0, 0);
+                    break;
+                case 'draw':
+                    this.ecs.renderLayer(layer.id, this.ctx, this.ecs.entities);
+                    break;
+            }
+        }
 
         if (showDebugHud) {
             this.renderDebugInfo();
@@ -426,7 +440,7 @@ class GameEngine {
         //    canvases in renderWorld) remain visible behind them.
         const pctx = this.propsCtx;
         pctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        this.ecs.renderStatic(pctx);
+        this.ecs.renderBakedLayers(pctx, this.ecs.entities);
         this._staticLayerDirty = false;
     }
 

@@ -5,9 +5,9 @@
 // screen space and stays anchored to the viewport even if world-space
 // scrolling is added later, giving a classic parallax effect for free.
 //
-// Render order: this system is registered first in the dynamic render
-// list so sky paints above the cached static background but behind the
-// player, collectibles, and front decorations.
+// Render order: registered on RENDER_LAYER.SKY (see render-layers.js).
+// Sky paints above the cached background and behind the props blit and
+// all gameplay draw layers (player, particles, collectibles, front props).
 class SkyRenderSystem extends System {
     constructor() {
         super(['Transform', 'SkyElement']);

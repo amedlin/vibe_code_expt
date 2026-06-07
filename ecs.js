@@ -68,15 +68,20 @@ class ECS {
     constructor() {
         this.entities = [];
         this.updateSystems = [];
-        this.renderSystems = [];
-        this.staticRenderSystems = [];
-        this.backDynamicRenderSystems = [];
+        // { layerId, system, bakeToProps }[]
+        this._renderSystems = [];
         this.nextEntityId = 0;
         this.entitySetListeners = [];
     }
 
     onEntitySetChanged(listener) {
         this.entitySetListeners.push(listener);
+    }
+
+    _invalidateRenderCaches() {
+        for (const entry of this._renderSystems) {
+            entry.system.invalidateEntityCache();
+        }
     }
 
     // event.affectsStaticLayer is consulted by external listeners (notably
@@ -87,15 +92,7 @@ class ECS {
         for (const system of this.updateSystems) {
             system.invalidateEntityCache();
         }
-        for (const system of this.renderSystems) {
-            system.invalidateEntityCache();
-        }
-        for (const system of this.staticRenderSystems) {
-            system.invalidateEntityCache();
-        }
-        for (const system of this.backDynamicRenderSystems) {
-            system.invalidateEntityCache();
-        }
+        this._invalidateRenderCaches();
         for (const listener of this.entitySetListeners) {
             listener(event);
         }
@@ -128,50 +125,49 @@ class ECS {
         return this;
     }
 
-    addRenderSystem(system) {
-        this.renderSystems.push(system);
+    // Register a render system on an explicit layer (see render-layers.js).
+    // options.bakeToProps: when true, the system draws into the cached
+    // propsCanvas during ensureStaticLayer instead of each frame.
+    addRenderSystem(system, layerId, options = {}) {
+        if (!isKnownRenderLayer(layerId)) {
+            throw new Error(`Unknown render layer id: ${layerId}`);
+        }
+        system.renderLayer = layerId;
+        this._renderSystems.push({
+            layerId,
+            system,
+            bakeToProps: options.bakeToProps === true
+        });
         return this;
     }
 
-    // Render systems whose output never changes during gameplay
-    // (platforms, back decorations). The engine renders these once into
-    // the cached props canvas at level load and blits the result each
-    // frame.
-    addStaticRenderSystem(system) {
-        this.staticRenderSystems.push(system);
-        return this;
+    _systemsForLayer(layerId) {
+        const out = [];
+        for (const entry of this._renderSystems) {
+            if (entry.layerId === layerId) {
+                out.push(entry.system);
+            }
+        }
+        return out;
     }
 
-    // Render systems for distant animated content that should paint
-    // ABOVE the procedural background but BEHIND platforms / props /
-    // gameplay entities. Used by the sky element system so clouds and
-    // birds read as background rather than foreground.
-    addBackDynamicRenderSystem(system) {
-        this.backDynamicRenderSystems.push(system);
-        return this;
+    renderLayer(layerId, ctx, entities) {
+        for (const system of this._systemsForLayer(layerId)) {
+            system.update(0, entities, ctx);
+        }
+    }
+
+    renderBakedLayers(ctx, entities) {
+        for (const entry of this._renderSystems) {
+            if (entry.bakeToProps) {
+                entry.system.update(0, entities, ctx);
+            }
+        }
     }
 
     update(deltaTime) {
         for (let system of this.updateSystems) {
             system.update(deltaTime, this.entities);
-        }
-    }
-
-    render(ctx) {
-        for (let system of this.renderSystems) {
-            system.update(0, this.entities, ctx);
-        }
-    }
-
-    renderStatic(ctx) {
-        for (let system of this.staticRenderSystems) {
-            system.update(0, this.entities, ctx);
-        }
-    }
-
-    renderBackDynamic(ctx) {
-        for (let system of this.backDynamicRenderSystems) {
-            system.update(0, this.entities, ctx);
         }
     }
 
@@ -185,19 +181,14 @@ class ECS {
     clear() {
         this.clearEntities();
         this.updateSystems = [];
-        this.renderSystems = [];
-        this.staticRenderSystems = [];
-        this.backDynamicRenderSystems = [];
+        this._renderSystems = [];
     }
 
     getStats() {
         return {
             entityCount: this.entities.length,
             updateSystemCount: this.updateSystems.length,
-            renderSystemCount:
-                this.renderSystems.length
-                + this.staticRenderSystems.length
-                + this.backDynamicRenderSystems.length
+            renderSystemCount: this._renderSystems.length
         };
     }
 }
