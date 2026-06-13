@@ -10,10 +10,11 @@ const PLAYER_SHOULDER_ATTACH_T = 0.82;
 const DEFAULT_POSE = {
     torso: Math.PI,
     head: 0,
-    upperArmL: 2.35 - Math.PI,
-    lowerArmL: 0.35,
-    upperArmR: -2.35 - Math.PI,
-    lowerArmR: -0.35,
+    // Torso-local: -Math.PI hangs straight down in world (0 rad = +Y).
+    upperArmL: -Math.PI,
+    lowerArmL: 0.25,
+    upperArmR: -Math.PI,
+    lowerArmR: 0.25,
     upperLegL: 0.28,
     lowerLegL: -0.08,
     upperLegR: -0.28,
