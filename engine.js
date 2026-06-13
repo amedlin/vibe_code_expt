@@ -1,6 +1,7 @@
 class GameEngine {
     // Cap dt so a backgrounded tab cannot apply seconds of physics in one frame
     static MAX_DELTA_TIME = 0.1;
+    static SLOW_MOTION_SCALE = 0.1;
 
     static fromDOM(options = {}) {
         const canvas = document.getElementById(options.canvasId ?? 'gameCanvas');
@@ -55,6 +56,7 @@ class GameEngine {
         this.navigationGraph = new NavigationGraph();
         this.gravity = 2000;
         this.lastFrameTime = 0;
+        this.slowMotion = false;
         this._loopBound = (time) => this.tick(time);
         this._frameScheduled = false;
         this._inventoryDirty = true;
@@ -239,6 +241,10 @@ class GameEngine {
         }
     }
 
+    toggleSlowMotion() {
+        this.slowMotion = !this.slowMotion;
+    }
+
     enterGameOver() {
         if (!this.stateManager.is('playing')) {
             return;
@@ -348,6 +354,11 @@ class GameEngine {
             }
         }
 
+        if (e.key === 'm' &&
+            (this.stateManager.is('playing') || this.stateManager.is('paused'))) {
+            this.toggleSlowMotion();
+        }
+
         if (e.key === 'r' && this.stateManager.is('gameOver')) {
             this.restart();
         }
@@ -368,7 +379,10 @@ class GameEngine {
 
         const rawDelta = (currentTime - this.lastFrameTime) / 1000;
         this.lastFrameTime = currentTime;
-        const deltaTime = Math.min(rawDelta, GameEngine.MAX_DELTA_TIME);
+        let deltaTime = Math.min(rawDelta, GameEngine.MAX_DELTA_TIME);
+        if (this.slowMotion) {
+            deltaTime *= GameEngine.SLOW_MOTION_SCALE;
+        }
 
         const config = this.stateManager.getConfig();
 
@@ -484,7 +498,10 @@ class GameEngine {
         this.ctx.fillText(`Pos: ${transform.x.toFixed(0)}, ${transform.y.toFixed(0)}`, 10, 20);
         this.ctx.fillText(`Velocity: ${physics.vx.toFixed(1)}, ${physics.vy.toFixed(1)}`, 10, 35);
         this.ctx.fillText(`Grounded: ${physics.isGrounded}`, 10, 50);
-        this.ctx.fillText('Press P to pause', 10, 65);
+        this.ctx.fillText('Press P to pause, M for slow motion', 10, 65);
+        if (this.slowMotion) {
+            this.ctx.fillText('SLOW MOTION', 10, 80);
+        }
     }
 
     loadLevelFromFile(file) {
