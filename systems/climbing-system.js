@@ -8,12 +8,14 @@ function collectLadderZones(entities) {
         }
         const transform = entity.getComponent('Transform');
         const ladder = entity.getComponent('Ladder');
+        const extendedTopY = ladder.extendedTopY ?? computeLadderExtendedTopY(ladder.topY);
         ladders.push({
             entityId: entity.id,
             x: transform.x,
             width: transform.width,
             topY: ladder.topY,
             bottomY: ladder.bottomY,
+            extendedTopY,
             centerX: ladder.centerX
         });
     }
@@ -25,7 +27,7 @@ function isCenterOnLadder(centerX, ladder) {
 }
 
 function bodyOverlapsLadder(bodyTop, feetY, ladder) {
-    return feetY > ladder.topY && bodyTop < ladder.bottomY;
+    return feetY > ladder.extendedTopY && bodyTop < ladder.bottomY;
 }
 
 function findLadderAt(centerX, bodyTop, feetY, ladders) {
@@ -42,6 +44,16 @@ function findLadderAt(centerX, bodyTop, feetY, ladders) {
 
 function findLadderById(ladders, entityId) {
     return ladders.find((l) => l.entityId === entityId) ?? null;
+}
+
+function resolveAirGrabDirection(input, physics) {
+    if (input.climbUp && input.climbDown) {
+        return physics.vy > 0 ? 'down' : 'up';
+    }
+    if (input.climbDown) {
+        return 'down';
+    }
+    return 'up';
 }
 
 class ClimbingSystem extends System {
@@ -61,17 +73,15 @@ class ClimbingSystem extends System {
 
             if (physics.isClimbing) {
                 this.updateClimbing(entity, input, movement, physics, transform, ladders, deltaTime);
+            } else if (physics.isGrounded) {
+                this.tryEnterClimbFromGround(input, physics, transform, ladders);
             } else {
-                this.tryEnterClimb(input, movement, physics, transform, ladders);
+                this.tryEnterClimbFromAir(input, physics, transform, ladders);
             }
         }
     }
 
-    tryEnterClimb(input, movement, physics, transform, ladders) {
-        if (!physics.isGrounded) {
-            return;
-        }
-
+    tryEnterClimbFromGround(input, physics, transform, ladders) {
         const centerX = transform.x + transform.width / 2;
         const feetY = transform.y + transform.height;
         const bodyTop = transform.y;
@@ -87,7 +97,25 @@ class ClimbingSystem extends System {
             this.startClimbing(physics, ladder.entityId, 'up');
         } else if (onTop && input.climbDown) {
             this.startClimbing(physics, ladder.entityId, 'down');
+            transform.y = ladder.extendedTopY;
         }
+    }
+
+    tryEnterClimbFromAir(input, physics, transform, ladders) {
+        if (!input.climbUp && !input.climbDown) {
+            return;
+        }
+
+        const centerX = transform.x + transform.width / 2;
+        const feetY = transform.y + transform.height;
+        const bodyTop = transform.y;
+        const ladder = findLadderAt(centerX, bodyTop, feetY, ladders);
+        if (!ladder) {
+            return;
+        }
+
+        const direction = resolveAirGrabDirection(input, physics);
+        this.startClimbing(physics, ladder.entityId, direction);
     }
 
     startClimbing(physics, ladderId, direction) {
@@ -120,7 +148,6 @@ class ClimbingSystem extends System {
         }
 
         const climbSpeed = movement.climbSpeed;
-        let feetY = transform.y + transform.height;
 
         if (input.climbUp) {
             transform.y -= climbSpeed * deltaTime;
@@ -136,11 +163,9 @@ class ClimbingSystem extends System {
             transform.x += movement.speed * 0.4 * deltaTime;
         }
 
-        feetY = transform.y + transform.height;
-        const minBodyY = ladder.topY - transform.height;
+        const minBodyY = ladder.extendedTopY;
         const maxBodyY = ladder.bottomY - transform.height;
         transform.y = clamp(transform.y, minBodyY, maxBodyY);
-        feetY = transform.y + transform.height;
 
         const centerX = transform.x + transform.width / 2;
         if (!isCenterOnLadder(centerX, ladder)) {
@@ -151,6 +176,8 @@ class ClimbingSystem extends System {
 
         physics.vx = 0;
         physics.vy = 0;
+
+        const feetY = transform.y + transform.height;
 
         if (physics.climbDirection === 'up' &&
             Math.abs(feetY - ladder.topY) <= CLIMB_PLATFORM_TOLERANCE) {

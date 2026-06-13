@@ -291,17 +291,19 @@ class LevelManager {
     }
 
     createLadder(ladderDef) {
-        const height = ladderDef.bottomY - ladderDef.topY;
+        const extendedTopY = ladderDef.extendedTopY ?? computeLadderExtendedTopY(ladderDef.topY);
+        const height = ladderDef.bottomY - extendedTopY;
         const entity = this.engine.ecs.createEntity();
         entity.addComponent('Transform', new TransformComponent(
             ladderDef.x,
-            ladderDef.topY,
+            extendedTopY,
             ladderDef.width,
             height
         ));
         entity.addComponent('Ladder', new LadderComponent({
             topY: ladderDef.topY,
             bottomY: ladderDef.bottomY,
+            extendedTopY,
             topPlatformIndex: ladderDef.topPlatformIndex,
             bottomPlatformIndex: ladderDef.bottomPlatformIndex,
             centerX: ladderDef.centerX

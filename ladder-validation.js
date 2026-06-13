@@ -1,5 +1,9 @@
 const LADDER_MIN_HEIGHT = 20;
 
+function computeLadderExtendedTopY(topY, playerHeight = PLAYER_SPAWN_HEIGHT) {
+    return topY - Math.ceil(playerHeight / 2);
+}
+
 function findPlatformAtTop(platforms, topY, x, width) {
     const right = x + width;
     return platforms.find((p) =>
@@ -83,11 +87,13 @@ function validateLadders(ladderDefs, platforms) {
         }
 
         seenPairs.add(pairKey);
+        const extendedTopY = computeLadderExtendedTopY(topY);
         resolved.push({
             x,
             width,
             topY,
             bottomY,
+            extendedTopY,
             topPlatformIndex: topIndex,
             bottomPlatformIndex: bottomIndex,
             centerX: x + width / 2
