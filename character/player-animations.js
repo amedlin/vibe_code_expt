@@ -44,8 +44,9 @@ const PLAYER_ANIMATIONS = {
     ]),
 
     // Eight-phase gait: one arm + one leg cycle, opposite side half a cycle
-    // (4 frames) out of phase. Arms rest spread (±0.45 world) with ±0.32 rad
-    // upper-arm swing; forearms drive hands forward/back at chest height.
+    // (4 frames) out of phase. Profile view: both arms share one shoulder, so
+    // the arm cycle uses the same torso-local swing (not idle's ±spread mirror).
+    // Forearms stay positive-bent like the forward-swinging side.
     run: poseClip('run', [
         {
             duration: 70,
@@ -56,9 +57,9 @@ const PLAYER_ANIMATIONS = {
                 upperLegR: -0.38,
                 lowerLegR: -0.48,
                 upperArmL: -3.4516,
-                lowerArmL: 1.4748,
-                upperArmR: -2.5516,
-                lowerArmR: -1.4407
+                lowerArmL: 1.5498,
+                upperArmR: -3.4516,
+                lowerArmR: 1.6593
             }
         },
         {
@@ -70,9 +71,9 @@ const PLAYER_ANIMATIONS = {
                 upperLegR: -0.12,
                 lowerLegR: -0.68,
                 upperArmL: -3.2053,
-                lowerArmL: 1.3583,
-                upperArmR: -2.3053,
-                lowerArmR: -1.8086
+                lowerArmL: 1.4220,
+                upperArmR: -3.6579,
+                lowerArmR: 1.6918
             }
         },
         {
@@ -85,8 +86,8 @@ const PLAYER_ANIMATIONS = {
                 lowerLegR: -0.58,
                 upperArmL: -3.1216,
                 lowerArmL: 1.3968,
-                upperArmR: -2.2216,
-                lowerArmR: -1.8331
+                upperArmR: -3.7616,
+                lowerArmR: 1.6813
             }
         },
         {
@@ -98,9 +99,9 @@ const PLAYER_ANIMATIONS = {
                 upperLegR: 0.42,
                 lowerLegR: -0.38,
                 upperArmL: -3.2253,
-                lowerArmL: 1.5858,
-                upperArmR: -2.3253,
-                lowerArmR: -1.6262
+                lowerArmL: 1.5182,
+                upperArmR: -3.6779,
+                lowerArmR: 1.6419
             }
         },
         {
@@ -112,9 +113,9 @@ const PLAYER_ANIMATIONS = {
                 upperLegR: 0.62,
                 lowerLegR: 0.12,
                 upperArmL: -3.4516,
-                lowerArmL: 1.7481,
-                upperArmR: -2.5516,
-                lowerArmR: -1.0623
+                lowerArmL: 1.6593,
+                upperArmR: -3.4516,
+                lowerArmR: 1.5498
             }
         },
         {
@@ -126,9 +127,9 @@ const PLAYER_ANIMATIONS = {
                 upperLegR: 0.18,
                 lowerLegR: -0.08,
                 upperArmL: -3.6579,
-                lowerArmL: 1.7466,
-                upperArmR: -2.7579,
-                lowerArmR: 0.2021
+                lowerArmL: 1.6918,
+                upperArmR: -3.2053,
+                lowerArmR: 1.4220
             }
         },
         {
@@ -141,8 +142,8 @@ const PLAYER_ANIMATIONS = {
                 lowerLegR: -0.38,
                 upperArmL: -3.7616,
                 lowerArmL: 1.6813,
-                upperArmR: -2.8616,
-                lowerArmR: 0.9155
+                upperArmR: -3.1216,
+                lowerArmR: 1.3968
             }
         },
         {
@@ -154,9 +155,9 @@ const PLAYER_ANIMATIONS = {
                 upperLegR: -0.58,
                 lowerLegR: -0.18,
                 upperArmL: -3.6779,
-                lowerArmL: 1.5961,
-                upperArmR: -2.7779,
-                lowerArmR: 0.6429
+                lowerArmL: 1.6419,
+                upperArmR: -3.2253,
+                lowerArmR: 1.5182
             }
         }
     ]),
