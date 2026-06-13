@@ -11,16 +11,23 @@ class AnimationSystem extends System {
             const tracker = entity.getComponent('VelocityTracker');
 
             let desiredAnimation = PLAYER_ANIMATIONS.idle;
+            let facing = 1;
 
             if (physics.isClimbing) {
-                desiredAnimation = PLAYER_ANIMATIONS.idle;
+                desiredAnimation = physics.climbDirection === 'down'
+                    ? PLAYER_ANIMATIONS.climbDown
+                    : PLAYER_ANIMATIONS.climbUp;
             } else if (!physics.isGrounded) {
-                desiredAnimation = physics.vy < 0 ? PLAYER_ANIMATIONS.jumping : PLAYER_ANIMATIONS.falling;
+                desiredAnimation = physics.vy < 0
+                    ? PLAYER_ANIMATIONS.jump
+                    : PLAYER_ANIMATIONS.fall;
             } else if (tracker && tracker.isMoving) {
-                desiredAnimation = tracker.lastVx < 0 ? PLAYER_ANIMATIONS.runningLeft : PLAYER_ANIMATIONS.runningRight;
+                desiredAnimation = PLAYER_ANIMATIONS.run;
+                facing = tracker.lastVx < 0 ? -1 : 1;
             }
 
             animation.desiredAnimation = desiredAnimation;
+            animation.facing = facing;
         }
     }
 }

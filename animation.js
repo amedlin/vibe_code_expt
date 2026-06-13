@@ -66,7 +66,17 @@ class Animator {
 
     getCurrentFrame() {
         if (!this.currentAnimation) return null;
+        if (isPoseAnimation(this.currentAnimation)) {
+            return null;
+        }
         return this.currentAnimation.getFrameAtTime(this.time);
+    }
+
+    getCurrentPose() {
+        if (!this.currentAnimation || !isPoseAnimation(this.currentAnimation)) {
+            return null;
+        }
+        return this.currentAnimation.getPoseAtTime(this.time);
     }
 
     isAnimationFinished() {
@@ -74,7 +84,21 @@ class Animator {
         return this.currentAnimation.isFinished(this.time);
     }
 
-    render(ctx, x, y, width, height) {
+    render(ctx, x, y, width, height, options = {}) {
+        const pose = this.getCurrentPose();
+        if (pose) {
+            const root = getPlayerFeetRoot(x, y, width, height);
+            drawStickFigure(
+                ctx,
+                root.x,
+                root.y,
+                pose,
+                PLAYER_SKELETON,
+                options
+            );
+            return;
+        }
+
         const frame = this.getCurrentFrame();
         if (frame && frame.render) {
             frame.render(ctx, x, y, width, height);

@@ -27,10 +27,11 @@ class RenderComponent {
 class AnimatedRenderComponent {
     constructor(animator) {
         this.animator = animator;
+        this.facing = 1;
     }
 
-    render(ctx, screenX, screenY, width, height) {
-        this.animator.render(ctx, screenX, screenY, width, height);
+    render(ctx, screenX, screenY, width, height, options = {}) {
+        this.animator.render(ctx, screenX, screenY, width, height, options);
     }
 }
 
@@ -83,7 +84,7 @@ class LadderRenderSystem extends System {
 // Animated render system - handles rendering animated entities
 class AnimatedRenderSystem extends System {
     constructor(camera) {
-        super(['Transform', 'AnimatedRender']);
+        super(['Transform', 'AnimatedRender', 'Animation']);
         this.camera = camera;
     }
 
@@ -92,12 +93,17 @@ class AnimatedRenderSystem extends System {
         for (let entity of animatedEntities) {
             const transform = entity.getComponent('Transform');
             const animatedRender = entity.getComponent('AnimatedRender');
-
-            const animator = animatedRender.animator;
-            animator.update(deltaTime);
+            const animation = entity.getComponent('Animation');
 
             const screenPos = this.camera.worldToScreen(transform.x, transform.y);
-            animatedRender.render(ctx, screenPos.x, screenPos.y, transform.width, transform.height);
+            animatedRender.render(
+                ctx,
+                screenPos.x,
+                screenPos.y,
+                transform.width,
+                transform.height,
+                { facing: animation?.facing ?? animatedRender.facing ?? 1 }
+            );
         }
     }
 }

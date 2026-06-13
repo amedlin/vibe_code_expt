@@ -15,6 +15,10 @@ class AnimatorUpdateSystem extends System {
                 animator.play(animation.desiredAnimation);
                 animation.currentAnimation = animation.desiredAnimation;
             }
+
+            if (entity.hasComponent('AnimatedRender')) {
+                entity.getComponent('AnimatedRender').facing = animation.facing;
+            }
         }
     }
 }

@@ -9,6 +9,17 @@ function lerp(a, b, t) {
     return a + (b - a) * t;
 }
 
+function lerpAngle(a, b, t) {
+    let delta = b - a;
+    while (delta > Math.PI) {
+        delta -= Math.PI * 2;
+    }
+    while (delta < -Math.PI) {
+        delta += Math.PI * 2;
+    }
+    return a + delta * t;
+}
+
 // Linearly accelerate `current` toward `target` by at most `acceleration*dt`.
 // Used by the movement system for ground/air control feel.
 function accelerateToward(current, target, acceleration, deltaTime) {
