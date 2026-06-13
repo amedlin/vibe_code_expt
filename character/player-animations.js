@@ -13,6 +13,63 @@ function poseClip(name, frames, looping = true) {
     );
 }
 
+// One limb cycle per chain; opposite side uses the same cycle π out of phase
+// (half the phase count, e.g. frame i + 4 mod 8).
+function buildContralateralGaitClip(name, { arm, leg, durations, torsoLean }, looping = true) {
+    const count = durations.length;
+    const halfCycle = count / 2;
+    const atPhase = (cycle, index) => cycle[((index % count) + count) % count];
+
+    const frames = durations.map((duration, index) => {
+        const armLeft = atPhase(arm, index);
+        const armRight = atPhase(arm, index + halfCycle);
+        const legLeft = atPhase(leg, index);
+        const legRight = atPhase(leg, index + halfCycle);
+
+        return {
+            duration,
+            angles: {
+                torso: Math.PI - torsoLean[index],
+                upperArmL: armLeft.upper,
+                lowerArmL: armLeft.lower,
+                upperArmR: armRight.upper,
+                lowerArmR: armRight.lower,
+                upperLegL: legLeft.upper,
+                lowerLegL: legLeft.lower,
+                upperLegR: legRight.upper,
+                lowerLegR: legRight.lower
+            }
+        };
+    });
+
+    return poseClip(name, frames, looping);
+}
+
+const RUN_ARM_CYCLE = [
+    { upper: -3.4516, lower: 1.5498 },
+    { upper: -3.2053, lower: 1.4220 },
+    { upper: -3.1216, lower: 1.3968 },
+    { upper: -3.2253, lower: 1.5182 },
+    { upper: -3.4516, lower: 1.6593 },
+    { upper: -3.6579, lower: 1.6918 },
+    { upper: -3.7616, lower: 1.6813 },
+    { upper: -3.6779, lower: 1.6419 }
+];
+
+const RUN_LEG_CYCLE = [
+    { upper: 0.62, lower: 0.12 },
+    { upper: 0.18, lower: -0.08 },
+    { upper: -0.28, lower: -0.38 },
+    { upper: -0.58, lower: -0.18 },
+    { upper: -0.38, lower: -0.48 },
+    { upper: -0.12, lower: -0.68 },
+    { upper: 0.08, lower: -0.58 },
+    { upper: 0.42, lower: -0.38 }
+];
+
+const RUN_FRAME_DURATIONS = [70, 55, 50, 50, 70, 55, 50, 50];
+const RUN_TORSO_LEAN = [0.14, 0.16, 0.15, 0.14, 0.14, 0.16, 0.15, 0.14];
+
 const PLAYER_ANIMATIONS = {
     idle: poseClip('idle', [
         {
@@ -43,124 +100,12 @@ const PLAYER_ANIMATIONS = {
         }
     ]),
 
-    // Eight-phase gait: one arm + one leg cycle, opposite side half a cycle
-    // (4 frames) out of phase. Profile view: both arms share one shoulder, so
-    // the arm cycle uses the same torso-local swing (not idle's ±spread mirror).
-    // Forearms stay positive-bent like the forward-swinging side.
-    run: poseClip('run', [
-        {
-            duration: 70,
-            angles: {
-                torso: Math.PI - 0.14,
-                upperLegL: 0.62,
-                lowerLegL: 0.12,
-                upperLegR: -0.38,
-                lowerLegR: -0.48,
-                upperArmL: -3.4516,
-                lowerArmL: 1.5498,
-                upperArmR: -3.4516,
-                lowerArmR: 1.6593
-            }
-        },
-        {
-            duration: 55,
-            angles: {
-                torso: Math.PI - 0.16,
-                upperLegL: 0.18,
-                lowerLegL: -0.08,
-                upperLegR: -0.12,
-                lowerLegR: -0.68,
-                upperArmL: -3.2053,
-                lowerArmL: 1.4220,
-                upperArmR: -3.6579,
-                lowerArmR: 1.6918
-            }
-        },
-        {
-            duration: 50,
-            angles: {
-                torso: Math.PI - 0.15,
-                upperLegL: -0.28,
-                lowerLegL: -0.38,
-                upperLegR: 0.08,
-                lowerLegR: -0.58,
-                upperArmL: -3.1216,
-                lowerArmL: 1.3968,
-                upperArmR: -3.7616,
-                lowerArmR: 1.6813
-            }
-        },
-        {
-            duration: 50,
-            angles: {
-                torso: Math.PI - 0.14,
-                upperLegL: -0.58,
-                lowerLegL: -0.18,
-                upperLegR: 0.42,
-                lowerLegR: -0.38,
-                upperArmL: -3.2253,
-                lowerArmL: 1.5182,
-                upperArmR: -3.6779,
-                lowerArmR: 1.6419
-            }
-        },
-        {
-            duration: 70,
-            angles: {
-                torso: Math.PI - 0.14,
-                upperLegL: -0.38,
-                lowerLegL: -0.48,
-                upperLegR: 0.62,
-                lowerLegR: 0.12,
-                upperArmL: -3.4516,
-                lowerArmL: 1.6593,
-                upperArmR: -3.4516,
-                lowerArmR: 1.5498
-            }
-        },
-        {
-            duration: 55,
-            angles: {
-                torso: Math.PI - 0.16,
-                upperLegL: -0.12,
-                lowerLegL: -0.68,
-                upperLegR: 0.18,
-                lowerLegR: -0.08,
-                upperArmL: -3.6579,
-                lowerArmL: 1.6918,
-                upperArmR: -3.2053,
-                lowerArmR: 1.4220
-            }
-        },
-        {
-            duration: 50,
-            angles: {
-                torso: Math.PI - 0.15,
-                upperLegL: 0.08,
-                lowerLegL: -0.58,
-                upperLegR: -0.28,
-                lowerLegR: -0.38,
-                upperArmL: -3.7616,
-                lowerArmL: 1.6813,
-                upperArmR: -3.1216,
-                lowerArmR: 1.3968
-            }
-        },
-        {
-            duration: 50,
-            angles: {
-                torso: Math.PI - 0.14,
-                upperLegL: 0.42,
-                lowerLegL: -0.38,
-                upperLegR: -0.58,
-                lowerLegR: -0.18,
-                upperArmL: -3.6779,
-                lowerArmL: 1.6419,
-                upperArmR: -3.2253,
-                lowerArmR: 1.5182
-            }
-        }
-    ]),
+    run: buildContralateralGaitClip('run', {
+        arm: RUN_ARM_CYCLE,
+        leg: RUN_LEG_CYCLE,
+        durations: RUN_FRAME_DURATIONS,
+        torsoLean: RUN_TORSO_LEAN
+    }),
 
     jump: poseClip('jump', [
         {
