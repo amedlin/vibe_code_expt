@@ -5,6 +5,7 @@
 # Platform: x, y, width, height
 # Pill: pill, x, y      (collectible AABB top-left; size set in pill.js)
 # Decoration: grass | tree | shrub, x, optional_y_hint
+# Ladder: ladder, leftX, width, topY, bottomY  (topY = upper surface, bottomY = lower surface)
 
 # Ground (full width)
 0, 560, 800, 40
@@ -23,6 +24,11 @@
 
 # Tier 4 — small peak reward
 360, 160, 80, 20
+
+# Ladders
+ladder, 105, 28, 460, 560
+ladder, 175, 28, 360, 460
+ladder, 385, 28, 260, 460
 
 # Pills — symmetric across x=400, one per platform tier
 pill, 393, 546

@@ -3,6 +3,13 @@ const NAV_POSITION_TOLERANCE = 14;
 const NAV_MAX_WALK_GAP = 28;
 const NAV_FALL_MAX_DROP = 250;
 
+const NAV_ACTION_PRIORITY = {
+    walk: 0,
+    jump: 1,
+    fall: 2,
+    climb: 3
+};
+
 function computeNavLimits(jumpPower, gravity, speed, agentWidth = 30) {
     const airTime = (2 * jumpPower) / gravity;
     return {
@@ -17,6 +24,7 @@ function computeNavLimits(jumpPower, gravity, speed, agentWidth = 30) {
 class NavigationGraph {
     constructor() {
         this.platforms = [];
+        this.ladders = [];
         this.adjacency = new Map();
         this.limits = null;
     }
@@ -24,6 +32,7 @@ class NavigationGraph {
     rebuild(entities, limits, canvasWidth = 800) {
         this.limits = limits;
         this.platforms = [];
+        this.ladders = [];
 
         for (const entity of entities) {
             if (!entity.hasComponent('Walkable') || !entity.hasComponent('Transform')) {
@@ -47,7 +56,50 @@ class NavigationGraph {
                 platform.width >= canvasWidth * 0.85;
         }
 
+        this.collectLadders(entities);
         this.preprocessConnectivity();
+    }
+
+    collectLadders(entities) {
+        for (const entity of entities) {
+            if (!entity.hasComponent('Ladder') || !entity.hasComponent('Transform')) {
+                continue;
+            }
+            const transform = entity.getComponent('Transform');
+            const ladder = entity.getComponent('Ladder');
+            const topPlatform = this.findPlatformForLadderEnd(ladder.topY, transform.x, transform.width);
+            const bottomPlatform = this.findPlatformForLadderEnd(ladder.bottomY, transform.x, transform.width);
+            if (!topPlatform || !bottomPlatform) {
+                continue;
+            }
+
+            ladder.topPlatformId = topPlatform.id;
+            ladder.bottomPlatformId = bottomPlatform.id;
+
+            this.ladders.push({
+                entityId: entity.id,
+                x: transform.x,
+                width: transform.width,
+                topY: ladder.topY,
+                bottomY: ladder.bottomY,
+                centerX: ladder.centerX,
+                topPlatformId: topPlatform.id,
+                bottomPlatformId: bottomPlatform.id
+            });
+        }
+    }
+
+    findPlatformForLadderEnd(topY, x, width) {
+        const right = x + width;
+        return this.platforms.find((platform) =>
+            platform.top === topY &&
+            x >= platform.left &&
+            right <= platform.right
+        ) ?? null;
+    }
+
+    getLadders() {
+        return this.ladders;
     }
 
     preprocessConnectivity() {
@@ -68,6 +120,60 @@ class NavigationGraph {
 
             this.adjacency.set(from.id, edges);
         }
+
+        this.addLadderEdges(agentWidth);
+    }
+
+    addLadderEdges(agentWidth) {
+        for (const ladder of this.ladders) {
+            const bottomPlatform = this.getPlatformById(ladder.bottomPlatformId);
+            const topPlatform = this.getPlatformById(ladder.topPlatformId);
+            if (!bottomPlatform || !topPlatform) {
+                continue;
+            }
+
+            const upEdge = this.computeClimbEdge(bottomPlatform, topPlatform, ladder, agentWidth, 'up');
+            const downEdge = this.computeClimbEdge(topPlatform, bottomPlatform, ladder, agentWidth, 'down');
+
+            if (upEdge) {
+                this.appendEdge(bottomPlatform.id, upEdge);
+            }
+            if (downEdge) {
+                this.appendEdge(topPlatform.id, downEdge);
+            }
+        }
+    }
+
+    appendEdge(fromId, edge) {
+        const edges = this.adjacency.get(fromId) ?? [];
+        const duplicate = edges.some((e) => e.toId === edge.toId && e.action === 'climb');
+        if (!duplicate) {
+            edges.push(edge);
+            this.adjacency.set(fromId, edges);
+        }
+    }
+
+    computeClimbEdge(from, to, ladder, agentWidth, direction) {
+        const approachX = clamp(
+            ladder.centerX - agentWidth / 2,
+            from.left,
+            from.right - agentWidth
+        );
+
+        return {
+            toId: to.id,
+            action: 'climb',
+            direction,
+            approachX,
+            moveDir: ladder.centerX >= approachX + agentWidth / 2 ? 1 : -1,
+            jumpAtEdge: false,
+            requiresMomentum: false,
+            heightDiff: to.top - from.top,
+            ladderEntityId: ladder.entityId,
+            ladderCenterX: ladder.centerX,
+            ladderLeft: ladder.x,
+            ladderRight: ladder.x + ladder.width
+        };
     }
 
     computeEdge(from, to, agentWidth) {
@@ -219,7 +325,15 @@ class NavigationGraph {
             // variety lives in buildCollectiblePlan's softmax sampling only;
             // re-rolling paths every frame caused movement jitter.
             const edges = this.getEdgesFrom(currentId).slice()
-                .sort((a, b) => a.toId - b.toId);
+                .sort((a, b) => {
+                    const idDiff = a.toId - b.toId;
+                    if (idDiff !== 0) {
+                        return idDiff;
+                    }
+                    const aPriority = NAV_ACTION_PRIORITY[a.action] ?? 99;
+                    const bPriority = NAV_ACTION_PRIORITY[b.action] ?? 99;
+                    return aPriority - bPriority;
+                });
 
             for (const edge of edges) {
                 if (visited.has(edge.toId)) continue;
@@ -249,10 +363,15 @@ class NavigationGraph {
                 fromId,
                 toId,
                 action: edge.action,
+                direction: edge.direction ?? null,
                 approachX: edge.approachX,
                 moveDir: edge.moveDir,
                 jumpAtEdge: edge.jumpAtEdge ?? false,
-                requiresMomentum: edge.requiresMomentum ?? false
+                requiresMomentum: edge.requiresMomentum ?? false,
+                ladderEntityId: edge.ladderEntityId ?? null,
+                ladderCenterX: edge.ladderCenterX ?? null,
+                ladderLeft: edge.ladderLeft ?? null,
+                ladderRight: edge.ladderRight ?? null
             });
         }
         return { platformIds, steps };
@@ -387,15 +506,29 @@ function findPlatformPath(fromPlatform, toPlatform, platforms, limits) {
     const graph = new NavigationGraph();
     graph.platforms = platforms;
     graph.limits = limits;
+    graph.ladders = [];
     graph.preprocessConnectivity();
     const path = graph.findPath(fromPlatform, toPlatform);
     return path ? path.platformIds : null;
+}
+
+function ladderForPlatforms(fromId, toId, ladders) {
+    for (const ladder of ladders) {
+        if (ladder.bottomPlatformId === fromId && ladder.topPlatformId === toId) {
+            return { ...ladder, direction: 'up' };
+        }
+        if (ladder.topPlatformId === fromId && ladder.bottomPlatformId === toId) {
+            return { ...ladder, direction: 'down' };
+        }
+    }
+    return null;
 }
 
 function buildCollectiblePlan(collectibles, startPlatform, platforms, limits, options) {
     const graph = new NavigationGraph();
     graph.platforms = platforms;
     graph.limits = limits;
+    graph.ladders = [];
     graph.preprocessConnectivity();
     return graph.buildCollectiblePlan(collectibles, startPlatform, options);
 }

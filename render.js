@@ -59,6 +59,27 @@ class PlatformRenderSystem extends System {
     }
 }
 
+class LadderRenderSystem extends System {
+    constructor(camera, themeProvider) {
+        super(['Transform', 'Ladder']);
+        this.camera = camera;
+        this.themeProvider = themeProvider;
+    }
+
+    update(deltaTime, entities, ctx) {
+        const theme = this.themeProvider();
+        if (!theme || typeof theme.drawLadder !== 'function') {
+            return;
+        }
+        const ladders = this.getEntitiesWithComponents(entities);
+        for (const entity of ladders) {
+            const transform = entity.getComponent('Transform');
+            const screen = this.camera.worldToScreen(transform.x, transform.y);
+            theme.drawLadder(ctx, screen.x, screen.y, transform.width, transform.height);
+        }
+    }
+}
+
 // Animated render system - handles rendering animated entities
 class AnimatedRenderSystem extends System {
     constructor(camera) {

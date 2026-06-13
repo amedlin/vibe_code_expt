@@ -14,7 +14,9 @@ class InputSystem extends System {
         const control = createControlInput(
             keys['a'] || keys['ArrowLeft'],
             keys['d'] || keys['ArrowRight'],
-            keys['w'] || keys[' '] || keys['ArrowUp']
+            keys[' '],
+            keys['w'] || keys['ArrowUp'],
+            keys['s'] || keys['ArrowDown']
         );
 
         const controlledEntities = this.getEntitiesWithComponents(entities);

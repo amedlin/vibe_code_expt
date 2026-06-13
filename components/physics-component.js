@@ -9,5 +9,8 @@ class PhysicsComponent {
         this.collisionGroup = options.collisionGroup !== undefined ? options.collisionGroup : 0;
         this.collisionMask = options.collisionMask !== undefined ? options.collisionMask : 0xFFFF;
         this.isGrounded = options.isGrounded || false;
+        this.isClimbing = options.isClimbing || false;
+        this.activeLadderId = options.activeLadderId ?? null;
+        this.climbDirection = options.climbDirection ?? null;
     }
 }

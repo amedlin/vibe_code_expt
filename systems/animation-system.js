@@ -12,7 +12,9 @@ class AnimationSystem extends System {
 
             let desiredAnimation = PLAYER_ANIMATIONS.idle;
 
-            if (!physics.isGrounded) {
+            if (physics.isClimbing) {
+                desiredAnimation = PLAYER_ANIMATIONS.idle;
+            } else if (!physics.isGrounded) {
                 desiredAnimation = physics.vy < 0 ? PLAYER_ANIMATIONS.jumping : PLAYER_ANIMATIONS.falling;
             } else if (tracker && tracker.isMoving) {
                 desiredAnimation = tracker.lastVx < 0 ? PLAYER_ANIMATIONS.runningLeft : PLAYER_ANIMATIONS.runningRight;

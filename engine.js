@@ -120,6 +120,7 @@ class GameEngine {
             this.inputBuffer,
             () => this.inputSourceManager.getSourceId()
         ));
+        this.ecs.addUpdateSystem(new ClimbingSystem());
         this.ecs.addUpdateSystem(new MovementSystem());
         this.ecs.addUpdateSystem(new BoundarySystem(this.canvasWidth, this.canvasHeight));
         this.ecs.addUpdateSystem(new PhysicsSystem([0, this.gravity]));
@@ -153,6 +154,11 @@ class GameEngine {
         this.ecs.addRenderSystem(new SkyRenderSystem(), RENDER_LAYER.SKY.id);
         this.ecs.addRenderSystem(
             new PlatformRenderSystem(this.camera, themeProvider),
+            RENDER_LAYER.PROPS.id,
+            { bakeToProps: true }
+        );
+        this.ecs.addRenderSystem(
+            new LadderRenderSystem(this.camera, themeProvider),
             RENDER_LAYER.PROPS.id,
             { bakeToProps: true }
         );

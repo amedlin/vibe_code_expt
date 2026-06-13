@@ -2,6 +2,7 @@ class MovementComponent {
     constructor(speed = 300, jumpPower = 700, groundAccelTime = 0.07) {
         this.speed = speed;
         this.jumpPower = jumpPower;
+        this.climbSpeed = 220;
         this.groundAccelTime = groundAccelTime;
         this.airSpeedMultiplier = 2;
         this.airAccelFactor = 0.12;

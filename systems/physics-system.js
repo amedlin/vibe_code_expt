@@ -38,6 +38,12 @@ class PhysicsSystem extends System {
         for (const body of this._dynamicBodies) {
             const physics = body.physics;
             const transform = body.transform;
+
+            if (physics.isClimbing) {
+                physics.isGrounded = false;
+                continue;
+            }
+
             physics.ax = 0;
             physics.ay = this.gravity[1];
             physics.vx += physics.ax * deltaTime;
@@ -77,6 +83,10 @@ class PhysicsSystem extends System {
     }
 
     resolveCollision(a, b, deltaTime) {
+        if (a.physics.isClimbing || b.physics.isClimbing) {
+            return;
+        }
+
         if (a.physics.type === 'dynamic' && (b.physics.type === 'static' || b.physics.type === 'platform')) {
             const prevBottom = a.transform.y + a.transform.height - a.physics.vy * deltaTime;
             if (a.physics.vy >= 0 && prevBottom <= b.transform.y + 10) {

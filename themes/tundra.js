@@ -69,6 +69,10 @@
             ctx.fillRect(x, y, w, Math.min(3, h));
         },
 
+        drawLadder(ctx, x, y, w, h) {
+            drawThemedLadder(ctx, x, y, w, h, this.palette.platformEdge, this.palette.platformSnow);
+        },
+
         getPropSprite(role) {
             return sprites[role] ?? null;
         }

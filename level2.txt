@@ -5,6 +5,7 @@
 # Platform: x, y, width, height
 # Pill: pill, x, y      (collectible AABB top-left; size set in pill.js)
 # Decoration: grass | tree | shrub, x, optional_y_hint
+# Ladder: ladder, leftX, width, topY, bottomY  (topY = upper surface, bottomY = lower surface)
 # Ground platform
 0, 570, 800, 30
 # Lower steps (slightly different heights so AI can hop laterally via jumps)
@@ -20,6 +21,10 @@
 280, 185, 240, 20
 # Top reward platform
 365, 90, 70, 20
+# Ladders
+ladder, 95, 28, 475, 570
+ladder, 390, 28, 90, 185
+ladder, 655, 28, 465, 570
 # Pills — one per platform top, encouraging full traversal
 pill, 393, 556
 pill, 103, 461

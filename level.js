@@ -1,6 +1,6 @@
 // Level class for managing level data and platform definitions
 class Level {
-    constructor(name, themeId, seed, platforms = [], collectibles = [], decorations = []) {
+    constructor(name, themeId, seed, platforms = [], collectibles = [], decorations = [], ladders = []) {
         this.name = name;
         this.themeId = themeId ?? DEFAULT_THEME_ID;
         // Optional explicit background seed. When null, LevelManager
@@ -10,6 +10,7 @@ class Level {
         this.platforms = platforms;
         this.collectibles = collectibles;
         this.decorations = decorations;
+        this.ladders = ladders;
     }
 
     static parse(text) {
@@ -17,6 +18,7 @@ class Level {
         const platforms = [];
         const collectibles = [];
         const decorations = [];
+        const ladders = [];
         let levelName = 'Unnamed Level';
         let themeId = DEFAULT_THEME_ID;
         let seed = null;
@@ -62,6 +64,24 @@ class Level {
                 continue;
             }
 
+            // Ladders: `ladder, leftX, width, topY, bottomY`
+            if (parts[0] === 'ladder') {
+                if (parts.length !== 5) {
+                    console.warn(
+                        `Ladder line must have exactly 5 fields (ladder, leftX, width, topY, bottomY): ${line}`
+                    );
+                    continue;
+                }
+                const x = parseFloat(parts[1]);
+                const width = parseFloat(parts[2]);
+                const topY = parseFloat(parts[3]);
+                const bottomY = parseFloat(parts[4]);
+                if (!isNaN(x) && !isNaN(width) && !isNaN(topY) && !isNaN(bottomY)) {
+                    ladders.push({ x, width, topY, bottomY });
+                }
+                continue;
+            }
+
             // Collectibles: `pill, x, y`. Only one collectible kind today;
             // additional kinds would slot in as parallel branches here.
             if (parts[0] === PILL_ID) {
@@ -92,6 +112,6 @@ class Level {
             }
         }
 
-        return new Level(levelName, themeId, seed, platforms, collectibles, decorations);
+        return new Level(levelName, themeId, seed, platforms, collectibles, decorations, ladders);
     }
 }

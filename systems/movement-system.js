@@ -11,6 +11,12 @@ class MovementSystem extends System {
             const physics = entity.getComponent('Physics');
             const tracker = entity.getComponent('VelocityTracker');
 
+            if (physics.isClimbing) {
+                tracker.lastVx = 0;
+                tracker.isMoving = input.climbUp || input.climbDown;
+                continue;
+            }
+
             if (physics.isGrounded) {
                 const targetVx = this.getTargetVx(input, movement.speed);
 

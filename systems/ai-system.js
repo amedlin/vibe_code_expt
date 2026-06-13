@@ -219,11 +219,15 @@ class AISystem extends System {
             if (!nav.transit || nav.transit.toPlatformId !== to) {
                 nav.transit = {
                     action: step.action,
+                    direction: step.direction ?? null,
                     targetX: step.approachX,
                     moveDir: step.moveDir,
                     jumpAtEdge: step.jumpAtEdge ?? false,
                     requiresMomentum: step.requiresMomentum ?? false,
                     toPlatformId: to,
+                    ladderLeft: step.ladderLeft ?? null,
+                    ladderRight: step.ladderRight ?? null,
+                    ladderCenterX: step.ladderCenterX ?? null,
                     committed: false
                 };
             }
@@ -263,7 +267,47 @@ class AISystem extends System {
             return this.executeJumpTransit(transform, physics, agent, transit);
         }
 
+        if (transit.action === 'climb') {
+            return this.executeClimbTransit(transform, physics, transit);
+        }
+
         return this.moveTowardX(transform, transit.targetX, physics, false, false);
+    }
+
+    executeClimbTransit(transform, physics, transit) {
+        const agentWidth = transform.width;
+        const centerX = transform.x + agentWidth / 2;
+
+        if (physics.isClimbing) {
+            return createControlInput(
+                false,
+                false,
+                false,
+                transit.direction === 'up',
+                transit.direction === 'down'
+            );
+        }
+
+        if (!physics.isGrounded) {
+            return NEUTRAL_CONTROL_INPUT;
+        }
+
+        const onLadder = transit.ladderLeft != null &&
+            centerX >= transit.ladderLeft &&
+            centerX <= transit.ladderRight;
+        const dx = transit.targetX - transform.x;
+
+        if (!onLadder || Math.abs(dx) > NAV_POSITION_TOLERANCE) {
+            return createControlInput(dx < 0, dx > 0, false, false, false);
+        }
+
+        return createControlInput(
+            false,
+            false,
+            false,
+            transit.direction === 'up',
+            transit.direction === 'down'
+        );
     }
 
     executeJumpTransit(transform, physics, agent, transit) {
@@ -356,11 +400,26 @@ class AISystem extends System {
 
         if (progress.stuckTimer >= agent.stuckThreshold &&
             nav.transit &&
-            (nav.transit.action === 'jump' || nav.transit.jumpAtEdge)) {
+            (nav.transit.action === 'jump' ||
+                nav.transit.jumpAtEdge ||
+                nav.transit.action === 'climb')) {
             progress.stuckTimer = 0;
             nav.transit.committed = true;
             progress.lastProgressX = x;
             progress.lastProgressY = y;
+            if (nav.transit.action === 'climb') {
+                const centerX = transform.x + transform.width / 2;
+                const ladderCenter = nav.transit.ladderCenterX ??
+                    (nav.transit.ladderLeft + nav.transit.ladderRight) / 2;
+                const nudgeLeft = centerX > ladderCenter;
+                return createControlInput(
+                    nudgeLeft,
+                    !nudgeLeft,
+                    false,
+                    nav.transit.direction === 'up',
+                    nav.transit.direction === 'down'
+                );
+            }
             return createControlInput(control.moveLeft, control.moveRight, true);
         }
 

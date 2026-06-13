@@ -3,6 +3,7 @@
 # Platform: x, y, width, height
 # Pill: pill, x, y      (collectible AABB top-left; size set in pill.js)
 # Decoration: grass | tree | shrub, x, optional_y_hint
+# Ladder: ladder, leftX, width, topY, bottomY  (topY = upper surface, bottomY = lower surface)
 # Ground platform
 0, 550, 800, 50
 # Lower platforms
@@ -13,6 +14,10 @@
 300, 250, 200, 20
 150, 150, 100, 20
 550, 150, 100, 20
+# Ladders
+ladder, 310, 28, 450, 550
+ladder, 160, 28, 350, 550
+ladder, 370, 28, 250, 450
 # Pills — one per platform tier, sitting on the platform top
 pill, 393, 536
 pill, 318, 436

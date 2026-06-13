@@ -14,6 +14,7 @@
 //     palette:              { ...colors },
 //     generateBackground(ctx, width, height, rng?): void
 //     drawPlatform(ctx, x, y, width, height): void
+//     drawLadder(ctx, x, y, width, height): void  — optional; themed ladder rails
 //     getPropSprite(role): { canvas, width, height } | null
 //     particles?: { dust: {...}, smoke: {...} }  — optional movement VFX
 //   }

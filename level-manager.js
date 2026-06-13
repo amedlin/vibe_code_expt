@@ -73,6 +73,14 @@ class LevelManager {
             console.log('No platforms in level data');
         }
 
+        const validatedLadders = validateLadders(
+            levelData.ladders ?? [],
+            levelData.platforms ?? []
+        );
+        for (const ladderDef of validatedLadders) {
+            this.createLadder(ladderDef);
+        }
+
         if (levelData.collectibles && levelData.collectibles.length > 0) {
             for (let def of levelData.collectibles) {
                 this.createCollectible(def);
@@ -280,5 +288,23 @@ class LevelManager {
         entity.addComponent('Walkable', new WalkableComponent());
         // PlatformRenderSystem will draw this via the active theme.
         entity.addComponent('Platform', new PlatformComponent());
+    }
+
+    createLadder(ladderDef) {
+        const height = ladderDef.bottomY - ladderDef.topY;
+        const entity = this.engine.ecs.createEntity();
+        entity.addComponent('Transform', new TransformComponent(
+            ladderDef.x,
+            ladderDef.topY,
+            ladderDef.width,
+            height
+        ));
+        entity.addComponent('Ladder', new LadderComponent({
+            topY: ladderDef.topY,
+            bottomY: ladderDef.bottomY,
+            topPlatformIndex: ladderDef.topPlatformIndex,
+            bottomPlatformIndex: ladderDef.bottomPlatformIndex,
+            centerX: ladderDef.centerX
+        }));
     }
 }
