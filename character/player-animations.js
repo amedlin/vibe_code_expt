@@ -38,61 +38,123 @@ const PLAYER_ANIMATIONS = {
         }
     ]),
 
+    // Eight-phase gait cycle (right foot → left foot). Contralateral arms:
+    // right leg forward pairs with left arm forward, and vice versa.
+    // Torso leans into travel (Math.PI - ~0.14–0.16): sin(π−θ) tips the
+    // body toward +X in local space, which mirrors correctly for left runs.
+    // Lower-leg angles use negative bend vs idle so knees flex toward the
+    // body rather than hyper-extending (avoids the moonwalk look).
     run: poseClip('run', [
         {
-            duration: 100,
+            duration: 70,
             angles: {
-                torso: Math.PI + 0.08,
-                upperArmL: 2.05,
-                lowerArmL: 0.55,
-                upperArmR: -1.75,
-                lowerArmR: -0.45,
-                upperLegL: -0.55,
-                lowerLegL: 0.35,
-                upperLegR: 0.65,
-                lowerLegR: -0.2
+                torso: Math.PI - 0.14,
+                upperLegR: 0.62,
+                lowerLegR: 0.12,
+                upperLegL: -0.38,
+                lowerLegL: -0.48,
+                upperArmL: 1.52,
+                lowerArmL: 0.58,
+                upperArmR: -2.88,
+                lowerArmR: -0.22
             }
         },
         {
-            duration: 100,
+            duration: 55,
             angles: {
-                torso: Math.PI + 0.04,
-                upperArmL: 2.25,
-                lowerArmL: 0.35,
-                upperArmR: -2.05,
-                lowerArmR: -0.55,
-                upperLegL: 0.15,
-                lowerLegL: -0.05,
-                upperLegR: -0.15,
-                lowerLegR: 0.05
+                torso: Math.PI - 0.16,
+                upperLegR: 0.18,
+                lowerLegR: -0.08,
+                upperLegL: -0.12,
+                lowerLegL: -0.68,
+                upperArmL: 1.98,
+                lowerArmL: 0.38,
+                upperArmR: -2.42,
+                lowerArmR: -0.42
             }
         },
         {
-            duration: 100,
+            duration: 50,
             angles: {
-                torso: Math.PI + 0.08,
-                upperArmL: 1.75,
-                lowerArmL: 0.45,
-                upperArmR: -2.05,
-                lowerArmR: -0.55,
-                upperLegL: 0.65,
-                lowerLegL: -0.2,
-                upperLegR: -0.55,
-                lowerLegR: 0.35
+                torso: Math.PI - 0.15,
+                upperLegR: -0.28,
+                lowerLegR: -0.38,
+                upperLegL: 0.08,
+                lowerLegL: -0.58,
+                upperArmL: 2.38,
+                lowerArmL: 0.28,
+                upperArmR: -2.08,
+                lowerArmR: -0.52
             }
         },
         {
-            duration: 100,
+            duration: 50,
             angles: {
-                torso: Math.PI + 0.04,
-                upperArmL: 2.05,
-                lowerArmL: 0.55,
-                upperArmR: -2.25,
-                lowerArmR: -0.35,
-                upperLegL: -0.15,
-                lowerLegL: 0.05,
-                upperLegR: 0.15,
-                lowerLegR: -0.05
+                torso: Math.PI - 0.14,
+                upperLegR: -0.58,
+                lowerLegR: -0.18,
+                upperLegL: 0.42,
+                lowerLegL: -0.38,
+                upperArmL: 2.72,
+                lowerArmL: 0.12,
+                upperArmR: -1.82,
+                lowerArmR: -0.58
+            }
+        },
+        {
+            duration: 70,
+            angles: {
+                torso: Math.PI - 0.14,
+                upperLegL: 0.62,
+                lowerLegL: 0.12,
+                upperLegR: -0.38,
+                lowerLegR: -0.48,
+                upperArmR: -1.52,
+                lowerArmR: 0.58,
+                upperArmL: 2.88,
+                lowerArmL: -0.22
+            }
+        },
+        {
+            duration: 55,
+            angles: {
+                torso: Math.PI - 0.16,
+                upperLegL: 0.18,
+                lowerLegL: -0.08,
+                upperLegR: -0.12,
+                lowerLegR: -0.68,
+                upperArmR: -1.98,
+                lowerArmR: 0.38,
+                upperArmL: 2.42,
+                lowerArmL: -0.42
+            }
+        },
+        {
+            duration: 50,
+            angles: {
+                torso: Math.PI - 0.15,
+                upperLegL: -0.28,
+                lowerLegL: -0.38,
+                upperLegR: 0.08,
+                lowerLegR: -0.58,
+                upperArmR: -2.38,
+                lowerArmR: 0.28,
+                upperArmL: 2.08,
+                lowerArmL: -0.52
+            }
+        },
+        {
+            duration: 50,
+            angles: {
+                torso: Math.PI - 0.14,
+                upperLegL: -0.58,
+                lowerLegL: -0.18,
+                upperLegR: 0.42,
+                lowerLegR: -0.38,
+                upperArmR: -2.72,
+                lowerArmR: 0.12,
+                upperArmL: 1.82,
+                lowerArmL: -0.58
             }
         }
     ]),
