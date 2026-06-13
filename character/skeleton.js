@@ -2,6 +2,7 @@
 // with 0 = straight down (+Y in canvas space).
 
 const PLAYER_HEAD_RADIUS = 5;
+const PLAYER_HIP_OFFSET_Y = -18;
 
 const DEFAULT_POSE = {
     torso: Math.PI,
@@ -127,6 +128,46 @@ function solvePose(skeleton, pose, rootX, rootY) {
     }
 
     return result;
+}
+
+function footSpanFromSolved(solved) {
+    const leftFoot = solved.joints.lowerLegLTip;
+    const rightFoot = solved.joints.lowerLegRTip;
+    if (!leftFoot || !rightFoot) {
+        return { left: 0, right: 0, span: 0, centerX: 0 };
+    }
+
+    const left = Math.min(leftFoot.x, rightFoot.x);
+    const right = Math.max(leftFoot.x, rightFoot.x);
+    return {
+        left,
+        right,
+        span: right - left,
+        centerX: (left + right) / 2
+    };
+}
+
+function measureFootSpan(skeleton, pose, hipOffsetY = PLAYER_HIP_OFFSET_Y) {
+    const solved = solvePose(skeleton, pose, 0, hipOffsetY);
+    return footSpanFromSolved(solved);
+}
+
+function collectIdleReferencePoses(idleAnimation) {
+    const poses = [mergePose(null, null)];
+    if (idleAnimation && idleAnimation.keyframes) {
+        for (const frame of idleAnimation.keyframes) {
+            poses.push(mergePose(null, frame.angles));
+        }
+    }
+    return poses;
+}
+
+function computePlayerColliderWidth(skeleton, idleAnimation) {
+    let maxSpan = 0;
+    for (const pose of collectIdleReferencePoses(idleAnimation)) {
+        maxSpan = Math.max(maxSpan, measureFootSpan(skeleton, pose).span);
+    }
+    return Math.max(1, Math.ceil(maxSpan));
 }
 
 function mergePose(basePose, overridePose) {

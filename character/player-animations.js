@@ -227,3 +227,7 @@ PLAYER_ANIMATIONS.runningLeft = PLAYER_ANIMATIONS.run;
 PLAYER_ANIMATIONS.runningRight = PLAYER_ANIMATIONS.run;
 PLAYER_ANIMATIONS.jumping = PLAYER_ANIMATIONS.jump;
 PLAYER_ANIMATIONS.falling = PLAYER_ANIMATIONS.fall;
+
+// Collider width is derived from the widest idle foot span so physics
+// bounds match the visible stance. Render scales every pose to this width.
+const PLAYER_SPAWN_WIDTH = computePlayerColliderWidth(PLAYER_SKELETON, PLAYER_ANIMATIONS.idle);

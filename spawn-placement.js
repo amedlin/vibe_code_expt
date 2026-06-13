@@ -1,4 +1,4 @@
-const PLAYER_SPAWN_WIDTH = 30;
+// PLAYER_SPAWN_WIDTH is assigned in character/player-animations.js from idle foot span.
 const PLAYER_SPAWN_HEIGHT = 40;
 const DEFAULT_PLAYER_SPAWN_X = 100;
 const DEFAULT_PLAYER_SPAWN_Y = 300;

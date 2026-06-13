@@ -13,15 +13,17 @@ const DRAW_LAYER_ORDER = [
     'lowerArmR'
 ];
 
-const STICK_FIGURE_HIP_OFFSET_Y = -18;
+const STICK_FIGURE_HIP_OFFSET_Y = PLAYER_HIP_OFFSET_Y;
 
 function drawStickFigure(ctx, rootX, rootY, pose, skeleton, options = {}) {
     const facing = options.facing ?? 1;
     const solved = solvePose(skeleton, pose, 0, STICK_FIGURE_HIP_OFFSET_Y);
+    const footMetrics = footSpanFromSolved(solved);
 
     ctx.save();
     ctx.translate(rootX, rootY);
     ctx.scale(facing, 1);
+    ctx.translate(-footMetrics.centerX, 0);
 
     ctx.strokeStyle = STICK_FIGURE_STROKE;
     ctx.fillStyle = STICK_FIGURE_STROKE;
