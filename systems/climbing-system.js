@@ -97,7 +97,6 @@ class ClimbingSystem extends System {
             this.startClimbing(physics, ladder.entityId, 'up');
         } else if (onTop && input.climbDown) {
             this.startClimbing(physics, ladder.entityId, 'down');
-            transform.y = ladder.extendedTopY;
         }
     }
 
@@ -163,7 +162,11 @@ class ClimbingSystem extends System {
             transform.x += movement.speed * 0.4 * deltaTime;
         }
 
-        const minBodyY = ladder.extendedTopY;
+        // Climb range spans standing on the upper platform down to standing
+        // on the lower one. extendedTopY is for ladder visuals and overlap
+        // detection only — it sits below the standing position on the upper
+        // platform and must not cap upward travel.
+        const minBodyY = ladder.topY - transform.height;
         const maxBodyY = ladder.bottomY - transform.height;
         transform.y = clamp(transform.y, minBodyY, maxBodyY);
 
