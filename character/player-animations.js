@@ -1,3 +1,7 @@
+// Pose keyframe angles are local to each bone's parent. Upper arms attach
+// partway up the torso (see PLAYER_SHOULDER_ATTACH_T), so upperArmL/R are
+// relative to the torso's orientation, not world space.
+
 const PLAYER_SKELETON = createPlayerSkeleton();
 
 function poseClip(name, frames, looping = true) {
@@ -13,9 +17,9 @@ const PLAYER_ANIMATIONS = {
         {
             duration: 400,
             angles: {
-                upperArmL: 2.35,
+                upperArmL: 2.35 - Math.PI,
                 lowerArmL: 0.35,
-                upperArmR: -2.35,
+                upperArmR: -2.35 - Math.PI,
                 lowerArmR: -0.35,
                 upperLegL: 0.24,
                 lowerLegL: -0.05,
@@ -26,9 +30,9 @@ const PLAYER_ANIMATIONS = {
         {
             duration: 400,
             angles: {
-                upperArmL: 2.28,
+                upperArmL: 2.28 - Math.PI,
                 lowerArmL: 0.42,
-                upperArmR: -2.28,
+                upperArmR: -2.28 - Math.PI,
                 lowerArmR: -0.42,
                 upperLegL: 0.32,
                 lowerLegL: -0.1,
@@ -53,9 +57,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegR: 0.12,
                 upperLegL: -0.38,
                 lowerLegL: -0.48,
-                upperArmL: 1.52,
+                upperArmL: 1.66 - Math.PI,
                 lowerArmL: 0.58,
-                upperArmR: -2.88,
+                upperArmR: -2.74 - Math.PI,
                 lowerArmR: -0.22
             }
         },
@@ -67,9 +71,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegR: -0.08,
                 upperLegL: -0.12,
                 lowerLegL: -0.68,
-                upperArmL: 1.98,
+                upperArmL: 1.82 - Math.PI,
                 lowerArmL: 0.38,
-                upperArmR: -2.42,
+                upperArmR: -2.26 - Math.PI,
                 lowerArmR: -0.42
             }
         },
@@ -81,9 +85,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegR: -0.38,
                 upperLegL: 0.08,
                 lowerLegL: -0.58,
-                upperArmL: 2.38,
+                upperArmL: 2.23 - Math.PI,
                 lowerArmL: 0.28,
-                upperArmR: -2.08,
+                upperArmR: -1.93 - Math.PI,
                 lowerArmR: -0.52
             }
         },
@@ -95,9 +99,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegR: -0.18,
                 upperLegL: 0.42,
                 lowerLegL: -0.38,
-                upperArmL: 2.72,
+                upperArmL: 2.58 - Math.PI,
                 lowerArmL: 0.12,
-                upperArmR: -1.82,
+                upperArmR: -1.68 - Math.PI,
                 lowerArmR: -0.58
             }
         },
@@ -109,9 +113,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegL: 0.12,
                 upperLegR: -0.38,
                 lowerLegR: -0.48,
-                upperArmR: -1.52,
+                upperArmR: -1.38 - Math.PI,
                 lowerArmR: 0.58,
-                upperArmL: 2.88,
+                upperArmL: 2.74 - Math.PI,
                 lowerArmL: -0.22
             }
         },
@@ -123,9 +127,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegL: -0.08,
                 upperLegR: -0.12,
                 lowerLegR: -0.68,
-                upperArmR: -1.98,
+                upperArmR: -1.82 - Math.PI,
                 lowerArmR: 0.38,
-                upperArmL: 2.42,
+                upperArmL: 2.26 - Math.PI,
                 lowerArmL: -0.42
             }
         },
@@ -137,9 +141,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegL: -0.38,
                 upperLegR: 0.08,
                 lowerLegR: -0.58,
-                upperArmR: -2.38,
+                upperArmR: -2.23 - Math.PI,
                 lowerArmR: 0.28,
-                upperArmL: 2.08,
+                upperArmL: 1.93 - Math.PI,
                 lowerArmL: -0.52
             }
         },
@@ -151,9 +155,9 @@ const PLAYER_ANIMATIONS = {
                 lowerLegL: -0.18,
                 upperLegR: 0.42,
                 lowerLegR: -0.38,
-                upperArmR: -2.72,
+                upperArmR: -2.58 - Math.PI,
                 lowerArmR: 0.12,
-                upperArmL: 1.82,
+                upperArmL: 1.68 - Math.PI,
                 lowerArmL: -0.58
             }
         }
@@ -164,9 +168,9 @@ const PLAYER_ANIMATIONS = {
             duration: 120,
             angles: {
                 torso: Math.PI - 0.12,
-                upperArmL: 2.0,
+                upperArmL: 2.12 - Math.PI,
                 lowerArmL: 0.15,
-                upperArmR: -2.0,
+                upperArmR: -1.88 - Math.PI,
                 lowerArmR: -0.15,
                 upperLegL: 0.55,
                 lowerLegL: -0.45,
@@ -178,9 +182,9 @@ const PLAYER_ANIMATIONS = {
             duration: 120,
             angles: {
                 torso: Math.PI - 0.08,
-                upperArmL: 1.95,
+                upperArmL: 2.03 - Math.PI,
                 lowerArmL: 0.2,
-                upperArmR: -1.95,
+                upperArmR: -1.97 - Math.PI,
                 lowerArmR: -0.2,
                 upperLegL: 0.48,
                 lowerLegL: -0.38,
@@ -195,9 +199,9 @@ const PLAYER_ANIMATIONS = {
             duration: 160,
             angles: {
                 torso: Math.PI + 0.05,
-                upperArmL: 2.55,
+                upperArmL: 2.5 - Math.PI,
                 lowerArmL: 0.1,
-                upperArmR: -2.55,
+                upperArmR: -2.6 - Math.PI,
                 lowerArmR: -0.1,
                 upperLegL: 0.35,
                 lowerLegL: -0.15,
@@ -209,9 +213,9 @@ const PLAYER_ANIMATIONS = {
             duration: 160,
             angles: {
                 torso: Math.PI + 0.02,
-                upperArmL: 2.48,
+                upperArmL: 2.46 - Math.PI,
                 lowerArmL: 0.18,
-                upperArmR: -2.48,
+                upperArmR: -2.5 - Math.PI,
                 lowerArmR: -0.18,
                 upperLegL: 0.42,
                 lowerLegL: -0.12,
@@ -226,9 +230,9 @@ const PLAYER_ANIMATIONS = {
             duration: 140,
             angles: {
                 torso: Math.PI - 0.05,
-                upperArmL: 1.85,
+                upperArmL: 1.9 - Math.PI,
                 lowerArmL: 0.25,
-                upperArmR: -1.55,
+                upperArmR: -1.5 - Math.PI,
                 lowerArmR: -0.55,
                 upperLegL: 0.45,
                 lowerLegL: -0.35,
@@ -240,9 +244,9 @@ const PLAYER_ANIMATIONS = {
             duration: 140,
             angles: {
                 torso: Math.PI - 0.02,
-                upperArmL: 1.55,
+                upperArmL: 1.57 - Math.PI,
                 lowerArmL: 0.55,
-                upperArmR: -1.85,
+                upperArmR: -1.83 - Math.PI,
                 lowerArmR: -0.25,
                 upperLegL: 0.15,
                 lowerLegL: 0.05,
@@ -257,9 +261,9 @@ const PLAYER_ANIMATIONS = {
             duration: 140,
             angles: {
                 torso: Math.PI + 0.03,
-                upperArmL: 2.45,
+                upperArmL: 2.42 - Math.PI,
                 lowerArmL: 0.35,
-                upperArmR: -2.15,
+                upperArmR: -2.18 - Math.PI,
                 lowerArmR: -0.45,
                 upperLegL: 0.2,
                 lowerLegL: 0.1,
@@ -271,9 +275,9 @@ const PLAYER_ANIMATIONS = {
             duration: 140,
             angles: {
                 torso: Math.PI + 0.05,
-                upperArmL: 2.15,
+                upperArmL: 2.1 - Math.PI,
                 lowerArmL: 0.45,
-                upperArmR: -2.45,
+                upperArmR: -2.5 - Math.PI,
                 lowerArmR: -0.35,
                 upperLegL: 0.5,
                 lowerLegL: -0.25,

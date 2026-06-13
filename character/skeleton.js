@@ -1,15 +1,18 @@
 // 2D stick-figure skeleton for the player. Local bone angles use radians
-// with 0 = straight down (+Y in canvas space).
+// with 0 = straight down (+Y in canvas space). Child bones may set attachT
+// (0–1) to join partway along the parent segment instead of at its tip.
 
 const PLAYER_HEAD_RADIUS = 5;
 const PLAYER_HIP_OFFSET_Y = -18;
+// Shoulder attach point as a fraction along the torso (0 = hips, 1 = neck).
+const PLAYER_SHOULDER_ATTACH_T = 0.82;
 
 const DEFAULT_POSE = {
     torso: Math.PI,
     head: 0,
-    upperArmL: 2.35,
+    upperArmL: 2.35 - Math.PI,
     lowerArmL: 0.35,
-    upperArmR: -2.35,
+    upperArmR: -2.35 - Math.PI,
     lowerArmR: -0.35,
     upperLegL: 0.28,
     lowerLegL: -0.08,
@@ -39,21 +42,23 @@ function createPlayerSkeleton() {
                 name: 'torso',
                 length: 14,
                 children: [
+                    {
+                        name: 'upperArmL',
+                        attachT: PLAYER_SHOULDER_ATTACH_T,
+                        length: 8,
+                        children: [
+                            { name: 'lowerArmL', length: 7, children: [] }
+                        ]
+                    },
+                    {
+                        name: 'upperArmR',
+                        attachT: PLAYER_SHOULDER_ATTACH_T,
+                        length: 8,
+                        children: [
+                            { name: 'lowerArmR', length: 7, children: [] }
+                        ]
+                    },
                     { name: 'head', length: 6, isHead: true, children: [] }
-                ]
-            },
-            {
-                name: 'upperArmL',
-                length: 8,
-                children: [
-                    { name: 'lowerArmL', length: 7, children: [] }
-                ]
-            },
-            {
-                name: 'upperArmR',
-                length: 8,
-                children: [
-                    { name: 'lowerArmR', length: 7, children: [] }
                 ]
             },
             {
@@ -112,7 +117,10 @@ function solveBone(bone, parentX, parentY, parentAngle, pose, result) {
     }
 
     for (const child of bone.children ?? []) {
-        solveBone(child, end.x, end.y, worldAngle, pose, result);
+        const attachT = child.attachT ?? 1;
+        const attachX = startX + (end.x - startX) * attachT;
+        const attachY = startY + (end.y - startY) * attachT;
+        solveBone(child, attachX, attachY, worldAngle, pose, result);
     }
 }
 
